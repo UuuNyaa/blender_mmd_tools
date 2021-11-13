@@ -1,7 +1,9 @@
 # About this fork
+Customized by Kafuji.
 Kafujiによるカスタマイズ版。
 
-・エクスポート時、ボーン名の".L/.R"サフィックスを"右/左"プレフィックスに変換する機能追加（辞書やボーンのmmd_boneカスタムプロパティは無視する）
+- Added bone renaming functionality that converts L/R suffix to 左右 prefix when exporting the model.
+- エクスポート時、ボーン名の".L/.R"サフィックスを"右/左"プレフィックスに変換する機能追加（辞書やボーンのmmd_boneカスタムプロパティは無視する）
 
 # MMD Tools
 MMD Tools is a blender addon for importing MMD (MikuMikuDance) model data (.pmd, .pmx), motion data (.vmd) and pose data (.vpd). Exporting model data (.pmx), motion data (.vmd) and pose data (.vpd) are supported as well.
