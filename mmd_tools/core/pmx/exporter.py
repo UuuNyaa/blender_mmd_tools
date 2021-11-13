@@ -360,7 +360,8 @@ class __PmxExporter:
                 pmx_bone = pmx.Bone()
                 
                 ################################################
-                # rename .L / .R to 左右                
+                # rename .L / .R to 左右
+                # todo: ファイルブラウザにオプション追加？
                 def resolve_lr_suffix(name, separator):
                     if separator not in name:
                         return name
@@ -377,7 +378,7 @@ class __PmxExporter:
                             continue
                         prefix = prefix_table[part.upper()]
                     return prefix + newname
-                ###################################################
+                ##################################################
                 
                 pmx_bone.name = resolve_lr_suffix( mmd_bone.name_j or bone.name, '.' )                
                 pmx_bone.name_e = mmd_bone.name_e
