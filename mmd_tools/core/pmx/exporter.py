@@ -358,7 +358,28 @@ class __PmxExporter:
                 bone = p_bone.bone
                 mmd_bone = p_bone.mmd_bone
                 pmx_bone = pmx.Bone()
-                pmx_bone.name = mmd_bone.name_j or bone.name
+                
+                ################################################
+                # rename .L / .R to 左右                
+                def resolve_lr_suffix(name, separator):
+                    if separator not in name:
+                        return name
+                    parts = name.split(separator)
+                    prefix_table = {'L':'左', 'R':'右'}
+                    prefix = ''
+                    newname = ''
+                    for part in parts:
+                        if part.upper() not in ('L', 'R'):
+                            if len(newname):
+                                newname += separator + part
+                            else:
+                                newname += part
+                            continue
+                        prefix = prefix_table[part.upper()]
+                    return prefix + newname
+                ###################################################
+                
+                pmx_bone.name = resolve_lr_suffix( mmd_bone.name_j or bone.name, '.' )                
                 pmx_bone.name_e = mmd_bone.name_e
 
                 pmx_bone.hasAdditionalRotate = mmd_bone.has_additional_rotation
