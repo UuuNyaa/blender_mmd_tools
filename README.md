@@ -1,6 +1,5 @@
 # About this fork
 Customized by Kafuji.
-
 Kafujiによるカスタマイズ版。
 
 - Added bone renaming functionality that converts L/R suffix to 左右 prefix when exporting the model.
