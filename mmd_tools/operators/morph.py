@@ -65,6 +65,52 @@ class AddMorph(Operator):
             morph.data_type = 'VERTEX_GROUP'
         return {'FINISHED'}
 
+
+@register_wrap
+class CopyMorphFromPoseLib(Operator):
+    bl_idname = 'mmd_tools.morph_copy_from_active_pose_library'
+    bl_label = 'Copy Morphs from Active Pose Library'
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+
+    @classmethod
+    def poll(cls, context):
+        if context.object.mode != 'POSE':
+            return False
+
+        root = mmd_model.Model.findRoot(context.active_object)
+        if root is None:
+            return False
+
+        return root.mmd_root.active_morph_type == 'bone_morphs'
+
+    def execute(self, context):
+        root = mmd_model.Model.findRoot(context.active_object)
+        model = mmd_model.Model(root)
+        armature_object = model.armature()
+        armature = armature_object.id_data
+        pose_library = armature.pose_library
+        if pose_library is None:
+            return {'CANCELLED'}
+
+        mmd_root = root.mmd_root
+        bone_morphs = mmd_root.bone_morphs
+
+        for index, pose_maker in enumerate(pose_library.pose_markers):
+            bone_morph = next(iter([m for m in bone_morphs if m.name == pose_maker.name]), None)
+            if bone_morph is None:
+                bone_morph = bone_morphs.add()
+                bone_morph.name = pose_maker.name
+
+            bpy.ops.pose.select_all(action='SELECT')
+            bpy.ops.pose.transforms_clear()
+            bpy.ops.poselib.apply_pose(pose_index=index)
+
+            mmd_root.active_morph = bone_morphs.find(bone_morph.name)
+            bpy.ops.mmd_tools.apply_bone_morph()
+
+        return {'FINISHED'}
+
+
 @register_wrap
 class RemoveMorph(Operator):
     bl_idname = 'mmd_tools.morph_remove'

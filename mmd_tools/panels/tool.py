@@ -379,6 +379,7 @@ class MMDMorphMenu(Menu):
         layout.operator_enum('mmd_tools.morph_slider_setup', 'type')
         layout.separator()
         layout.operator('mmd_tools.morph_copy', icon='COPY_ID')
+        layout.operator('mmd_tools.morph_copy_from_active_pose_library', icon='PRESET_NEW')
         layout.separator()
         layout.operator('mmd_tools.morph_move', icon=TRIA_UP_BAR, text='Move To Top').type = 'TOP'
         layout.operator('mmd_tools.morph_move', icon=TRIA_DOWN_BAR, text='Move To Bottom').type = 'BOTTOM'
