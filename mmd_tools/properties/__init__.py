@@ -20,6 +20,7 @@ else:
         material,
         bone,
         rigid_body,
+        armature,
         )
 
 __properties = {
@@ -52,6 +53,7 @@ __properties = {
         'mmd_rigid': bpy.props.PointerProperty(type=rigid_body.MMDRigidBody),
         'mmd_joint': bpy.props.PointerProperty(type=rigid_body.MMDJoint),
         'is_mmd_glsl_light': bpy.props.BoolProperty(name='is_mmd_glsl_light', default=False),
+        'mmd_data_query': bpy.props.PointerProperty(type=armature.MMDDataQuery),
         },
     bpy.types.Material: {
         'mmd_material': bpy.props.PointerProperty(type=material.MMDMaterial),

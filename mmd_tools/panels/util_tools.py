@@ -337,4 +337,3 @@ class MMDBoneOrder(_PanelBase, Panel):
                 row = row.row(align=True)
                 row.operator('object.vertex_group_move', text='', icon='TRIA_UP').direction = 'UP'
                 row.operator('object.vertex_group_move', text='', icon='TRIA_DOWN').direction = 'DOWN'
-

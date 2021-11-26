@@ -133,6 +133,39 @@ class FnMorph(object):
             obj.vertex_groups.active.name = vg_name.replace(src_name, dest_name)
 
     @staticmethod
+    def overwrite_bone_morphs_from_pose_library(armature_object):
+        armature = armature_object.id_data
+        pose_library = armature.pose_library
+
+        if pose_library is None:
+            return
+
+        root = armature_object.parent
+        mmd_root = root.mmd_root
+        bone_morphs = mmd_root.bone_morphs
+
+        original_mode = bpy.context.object.mode
+        bpy.ops.object.mode_set(mode='POSE')
+        try:
+            for index, pose_maker in enumerate(pose_library.pose_markers):
+                bone_morph = next(iter([m for m in bone_morphs if m.name == pose_maker.name]), None)
+                if bone_morph is None:
+                    bone_morph = bone_morphs.add()
+                    bone_morph.name = pose_maker.name
+
+                bpy.ops.pose.select_all(action='SELECT')
+                bpy.ops.pose.transforms_clear()
+                bpy.ops.poselib.apply_pose(pose_index=index)
+
+                mmd_root.active_morph = bone_morphs.find(bone_morph.name)
+                bpy.ops.mmd_tools.apply_bone_morph()
+
+            bpy.ops.pose.transforms_clear()
+
+        finally:
+            bpy.ops.object.mode_set(mode=original_mode)
+
+    @staticmethod
     def clean_uv_morph_vertex_groups(obj):
         # remove empty vertex groups of uv morphs
         vg_indices = {g.index for g, n, x in FnMorph.get_uv_morph_vertex_groups(obj)}

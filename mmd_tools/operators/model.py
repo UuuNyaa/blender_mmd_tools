@@ -227,6 +227,11 @@ class ConvertToMMDModel(Operator):
         step=0.1,
         default=0.5,
         )
+    middle_joint_bones_lock = bpy.props.BoolProperty(
+        name='Middle Joint Bones Lock',
+        description='Lock specific bones for backward compatibility.',
+        default=False,
+        )
 
     @classmethod
     def poll(cls, context):
@@ -284,13 +289,14 @@ class ConvertToMMDModel(Operator):
 
         rig.loadMorphs()
 
-        vertex_groups = {g.name for mesh in meshes for g in mesh.vertex_groups}
-        for pose_bone in armature.pose.bones:
-            if not pose_bone.parent:
-                continue
-            if not pose_bone.bone.use_connect and pose_bone.name not in vertex_groups:
-                continue
-            pose_bone.lock_location = (True, True, True)
+        if self.middle_joint_bones_lock:
+            vertex_groups = {g.name for mesh in meshes for g in mesh.vertex_groups}
+            for pose_bone in armature.pose.bones:
+                if not pose_bone.parent:
+                    continue
+                if not pose_bone.bone.use_connect and pose_bone.name not in vertex_groups:
+                    continue
+                pose_bone.lock_location = (True, True, True)
 
         from mmd_tools.core.material import FnMaterial
         for m in {x for mesh in meshes for x in mesh.data.materials if x}:

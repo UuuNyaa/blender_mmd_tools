@@ -61,6 +61,7 @@ class MMDToolsObjectPanel(_PanelBase, Panel):
             col.operator('mmd_tools.join_meshes')
             col.operator('mmd_tools.attach_meshes')
             col.operator('mmd_tools.translate_mmd_model', text='Translation')
+            col.operator('mmd_tools.show_global_translation_popup', text='(Experimental) New Translation')
 
             row = _layout_split(layout, factor=1/3, align=False)
 
@@ -379,7 +380,7 @@ class MMDMorphMenu(Menu):
         layout.operator_enum('mmd_tools.morph_slider_setup', 'type')
         layout.separator()
         layout.operator('mmd_tools.morph_copy', icon='COPY_ID')
-        layout.operator('mmd_tools.morph_copy_from_active_pose_library', icon='PRESET_NEW')
+        layout.operator('mmd_tools.morph_overwrite_from_active_pose_library', icon='PRESET_NEW')
         layout.separator()
         layout.operator('mmd_tools.morph_move', icon=TRIA_UP_BAR, text='Move To Top').type = 'TOP'
         layout.operator('mmd_tools.morph_move', icon=TRIA_DOWN_BAR, text='Move To Bottom').type = 'BOTTOM'

@@ -587,7 +587,28 @@ class _FnMaterialCycles(_FnMaterialBI):
         m, mmd_material = material, material.mmd_material
 
         if m.use_nodes and next((n for n in m.node_tree.nodes if n.name.startswith('mmd_')), None) is None:
-            tex_node = next((n for n in m.node_tree.nodes if n.bl_idname == 'ShaderNodeTexImage'), None)
+            def search_tex_image_node(node: bpy.types.ShaderNode):
+                if node.type == 'TEX_IMAGE':
+                    return node
+                for input in node.inputs:
+                    if not input.is_linked:
+                        continue
+                    child = search_tex_image_node(input.links[0].from_node)
+                    if child is not None:
+                        return child
+                return None
+
+            tex_node = None
+            for target in ['ALL', 'EEVEE', 'CYCLES']:
+                output_node = m.node_tree.get_output_node(target)
+                if output_node is None:
+                    continue
+
+                if output_node.is_active_output:
+                    tex_node = search_tex_image_node(output_node.inputs[0].links[0].from_node)
+
+            if tex_node is None:
+                tex_node = next((n for n in m.node_tree.nodes if n.bl_idname == 'ShaderNodeTexImage'), None)
             if tex_node:
                 tex_node.name = 'mmd_base_tex'
 
