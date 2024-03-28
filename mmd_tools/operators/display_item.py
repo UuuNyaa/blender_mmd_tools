@@ -306,10 +306,21 @@ class DisplayItemQuickSetup(Operator):
 
     @staticmethod
     def load_bone_groups(mmd_root, armature):
-        bone_groups = OrderedDict((i.name, []) for i in armature.pose.bone_groups)
-        for b in armature.pose.bones:
-            if b.bone_group:
-                bone_groups[b.bone_group.name].append(b.name)
+        if bpy.app.version < (4, 0, 0): # bone_groups had been removed from blender 4.0, introducing bone_collections
+            bone_groups = OrderedDict((i.name, []) for i in armature.pose.bone_groups)
+            for b in armature.pose.bones:
+                if b.bone_group:
+                    bone_groups[b.bone_group.name].append(b.name)
+        else: # use bone_collections, flat list in 4.0, and hierarchical in 4.1
+            if hasattr(armature.data, 'collections_all'): # Introduced in Blender 4.1
+                all_collections = armature.data.collections_all
+            else:
+                all_collections = armature.data.collections
+            bone_groups = OrderedDict((i.name, []) for i in all_collections)
+            for b in armature.pose.bones:
+                if b.bone.collections:
+                    colle = b.bone.collections[0]
+                    bone_groups[colle.name].append(b.name)
 
         frames = mmd_root.display_item_frames
         used_index = set()
