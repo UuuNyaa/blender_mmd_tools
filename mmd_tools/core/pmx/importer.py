@@ -795,7 +795,10 @@ class PMXImporter:
         else:
             custom_normals = [(Vector(v.normal).xzy).normalized() for v in self.__model.vertices]
             mesh.normals_split_custom_set_from_vertices(custom_normals)
-        mesh.use_auto_smooth = True
+        if bpy.app.version < (4, 1, 0):
+            mesh.use_auto_smooth = True
+        else:
+            pass # It seems that we don't need to handle this anymore.
         logging.info("   - Done!!")
 
     def __renameLRBones(self, use_underscore):
