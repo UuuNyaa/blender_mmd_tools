@@ -976,27 +976,31 @@ class __PmxExporter:
     @staticmethod
     def __get_normals(mesh, matrix):
         custom_normals = None
-        if hasattr(mesh, "has_custom_normals"):
-            logging.debug(" - Calculating normals split...")
-            mesh.calc_normals_split()
-            custom_normals = [(matrix @ l.normal).normalized() for l in mesh.loops]
-            mesh.free_normals_split()
-        elif mesh.use_auto_smooth:
-            logging.debug(" - Calculating normals split (angle:%f)...", mesh.auto_smooth_angle)
-            mesh.calc_normals_split(mesh.auto_smooth_angle)
-            custom_normals = [(matrix @ l.normal).normalized() for l in mesh.loops]
-            mesh.free_normals_split()
-        else:
-            logging.debug(" - Calculating normals...")
-            mesh.calc_normals()
-            custom_normals = []
-            for f in mesh.polygons:
-                if f.use_smooth:
-                    for v in f.vertices:
-                        custom_normals.append((matrix @ mesh.vertices[v].normal).normalized())
-                else:
-                    for v in f.vertices:
-                        custom_normals.append((matrix @ f.normal).normalized())
+        if bpy.app.version < (4, 1, 0): # AutoSmooth, calc_normals_split() and correspondings had been removed from Blender 4.1
+            if hasattr(mesh, "has_custom_normals"):
+                logging.debug(" - Calculating normals split...")
+                mesh.calc_normals_split()
+                custom_normals = [(matrix @ l.normal).normalized() for l in mesh.loops]
+                mesh.free_normals_split()
+            elif mesh.use_auto_smooth:
+                logging.debug(" - Calculating normals split (angle:%f)...", mesh.auto_smooth_angle)
+                mesh.calc_normals_split(mesh.auto_smooth_angle)
+                custom_normals = [(matrix @ l.normal).normalized() for l in mesh.loops]
+                mesh.free_normals_split()
+            else:
+                logging.debug(" - Calculating normals...")
+                mesh.calc_normals()
+                custom_normals = []
+                for f in mesh.polygons:
+                    if f.use_smooth:
+                        for v in f.vertices:
+                            custom_normals.append((matrix @ mesh.vertices[v].normal).normalized())
+                    else:
+                        for v in f.vertices:
+                            custom_normals.append((matrix @ f.normal).normalized())
+        else: # Blender 4.1 or later
+            custom_normals = [(matrix @ cn.vector).normalized() for cn in mesh.corner_normals]
+
         logging.debug("   - Done (polygons:%d)", len(mesh.polygons))
         return custom_normals
 
