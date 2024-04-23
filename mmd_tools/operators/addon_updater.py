@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
+# This file is part of MMD Tools.
+
+import bpy
+
+# Following code is copied from
+#   https://github.com/nutti/Screencast-Keys/blob/dea64b92ad4c5d7ae64cb48a9dd243ad52e4e33f/src/screencast_keys/utils/addon_updater.py
+# fmt: off
+
+# <pep8-80 compliant>
 
 # ##### BEGIN GPL LICENSE BLOCK #####
 #
@@ -18,21 +27,15 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-# This file is copied from
-#   https://github.com/nutti/Screencast-Keys/blob/a16f6c7dd697f6ec7bced5811db4a8144514d320/src/screencast_keys/utils/addon_updater.py
-# fmt: off
-
-import datetime
-import json
-import os
-import shutil
-import ssl
+from threading import Lock
 import urllib
 import urllib.request
+import ssl
+import json
+import os
 import zipfile
-from threading import Lock
-
-import bpy
+import shutil
+import datetime
 
 
 def get_separator():
@@ -47,21 +50,19 @@ def _request(url, json_decode=True):
     req = urllib.request.Request(url)
 
     try:
-        result = urllib.request.urlopen(req)
+        with urllib.request.urlopen(req) as result:
+            data = result.read()
     except urllib.error.HTTPError as e:
-        raise RuntimeError("HTTP error ({})".format(str(e.code)))
+        raise RuntimeError("HTTP error ({})".format(str(e.code))) from e
     except urllib.error.URLError as e:
-        raise RuntimeError("URL error ({})".format(str(e.reason)))
-
-    data = result.read()
-    result.close()
+        raise RuntimeError("URL error ({})".format(str(e.reason))) from e
 
     if json_decode:
         try:
             return json.JSONDecoder().decode(data.decode())
         except Exception as e:
             raise RuntimeError("API response has invalid JSON format ({})"
-                               .format(str(e)))
+                               .format(str(e))) from e
 
     return data.decode()
 
@@ -70,9 +71,9 @@ def _download(url, path):
     try:
         urllib.request.urlretrieve(url, path)
     except urllib.error.HTTPError as e:
-        raise RuntimeError("HTTP error ({})".format(str(e.code)))
+        raise RuntimeError("HTTP error ({})".format(str(e.code))) from e
     except urllib.error.URLError as e:
-        raise RuntimeError("URL error ({})".format(str(e.reason)))
+        raise RuntimeError("URL error ({})".format(str(e.reason))) from e
 
 
 def _make_workspace_path(addon_dir):
@@ -120,14 +121,16 @@ def _replace_addon(addon_dir, info, current_addon_path, offset_path=""):
 
 
 def _get_all_releases_data(owner, repository):
-    url = "https://api.github.com/repos/{}/{}/releases".format(owner, repository)
+    url = "https://api.github.com/repos/{}/{}/releases"\
+          .format(owner, repository)
     data = _request(url)
 
     return data
 
 
 def _get_all_branches_data(owner, repository):
-    url = "https://api.github.com/repos/{}/{}/branches".format(owner, repository)
+    url = "https://api.github.com/repos/{}/{}/branches"\
+          .format(owner, repository)
     data = _request(url)
 
     return data
@@ -261,7 +264,9 @@ class AddonUpdaterManager:
                 if b["name"] in self.__config.branches:
                     info = UpdateCandidateInfo()
                     info.name = b["name"]
-                    info.url = "https://github.com/{}/{}/archive/{}.zip".format(self.__config.owner, self.__config.repository, b["name"])
+                    info.url = "https://github.com/{}/{}/archive/{}.zip"\
+                               .format(self.__config.owner,
+                                       self.__config.repository, b["name"])
                     info.group = 'BRANCH'
                     self.__update_candidate.append(info)
 
@@ -417,10 +422,9 @@ def register_updater(bl_info, init_py_file):
     config.owner = "UuuNyaa"
     config.repository = "blender_mmd_tools"
     config.current_addon_path = os.path.dirname(os.path.realpath(init_py_file))
-    config.branches = ["main"]
+    config.branches = ["blender-v4"]
     config.addon_directory = os.path.dirname(config.current_addon_path)
-    config.min_release_version = (1, 0, 0)
-    config.max_release_version = (4, 0, 0)
+    config.min_release_version = (4, 0, 0)
     config.default_target_addon_path = "mmd_tools"
     config.target_addon_path = {}
     updater = AddonUpdaterManager.get_instance()

@@ -1,13 +1,20 @@
 # -*- coding: utf-8 -*-
+# Copyright 2015 MMD Tools authors
+# This file is part of MMD Tools.
+
+import math
+from typing import TYPE_CHECKING, Iterable, Optional, Set
 
 import bpy
-from bpy.types import PoseBone
+from mathutils import Vector
 
-from math import pi
-import math
-from mathutils import Vector, Quaternion, Matrix
 from mmd_tools import bpyutils
 from mmd_tools.bpyutils import TransformConstraintOp
+import mmd_tools.utils
+
+if TYPE_CHECKING:
+    from mmd_tools.properties.root import MMDRoot, MMDDisplayItemFrame
+    from mmd_tools.properties.pose_bone import MMDBone
 
 
 def remove_constraint(constraints, name):
@@ -17,6 +24,7 @@ def remove_constraint(constraints, name):
         return True
     return False
 
+
 def remove_edit_bones(edit_bones, bone_names):
     for name in bone_names:
         b = edit_bones.get(name, None)
@@ -24,57 +32,54 @@ def remove_edit_bones(edit_bones, bone_names):
             edit_bones.remove(b)
 
 
-class FnBone(object):
-    AUTO_LOCAL_AXIS_ARMS = ('左肩', '左腕', '左ひじ', '左手首', '右腕', '右肩', '右ひじ', '右手首')
-    AUTO_LOCAL_AXIS_FINGERS = ('親指','人指', '中指', '薬指','小指')
-    AUTO_LOCAL_AXIS_SEMI_STANDARD_ARMS = ('左腕捩', '左手捩', '左肩P', '左ダミー', '右腕捩', '右手捩', '右肩P', '右ダミー')
+BONE_COLLECTION_CUSTOM_PROPERTY_NAME = "mmd_tools"
+BONE_COLLECTION_CUSTOM_PROPERTY_VALUE_SPECIAL = "special collection"
+BONE_COLLECTION_CUSTOM_PROPERTY_VALUE_NORMAL = "normal collection"
+BONE_COLLECTION_NAME_SHADOW = "mmd_shadow"
+BONE_COLLECTION_NAME_DUMMY = "mmd_dummy"
 
-    def __init__(self, pose_bone=None):
-        if pose_bone is not None and not isinstance(pose_bone, PoseBone):
-            raise ValueError
-        self.__bone = pose_bone
+SPECIAL_BONE_COLLECTION_NAMES = [BONE_COLLECTION_NAME_SHADOW, BONE_COLLECTION_NAME_DUMMY]
 
-    @classmethod
-    def from_bone_id(cls, armature, bone_id):
-        for bone in armature.pose.bones:
-            if bone.mmd_bone.bone_id == bone_id:
-                return cls(bone)
-        return None
 
-    @property
-    def bone_id(self):
-        mmd_bone = self.__bone.mmd_bone
-        if mmd_bone.bone_id < 0:
-            max_id = -1
-            for bone in self.__bone.id_data.pose.bones:
-                max_id = max(max_id, bone.mmd_bone.bone_id)
-            mmd_bone.bone_id = max_id + 1
-        return mmd_bone.bone_id
+class FnBone:
+    AUTO_LOCAL_AXIS_ARMS = ("左肩", "左腕", "左ひじ", "左手首", "右腕", "右肩", "右ひじ", "右手首")
+    AUTO_LOCAL_AXIS_FINGERS = ("親指", "人指", "中指", "薬指", "小指")
+    AUTO_LOCAL_AXIS_SEMI_STANDARD_ARMS = ("左腕捩", "左手捩", "左肩P", "左ダミー", "右腕捩", "右手捩", "右肩P", "右ダミー")
 
-    def __get_pose_bone(self):
-        return self.__bone
-
-    def __set_pose_bone(self, pose_bone):
-        if not isinstance(pose_bone, bpy.types.PoseBone):
-            raise ValueError
-        self.__bone = pose_bone
-
-    pose_bone = property(__get_pose_bone, __set_pose_bone)
-
+    def __init__(self):
+        raise NotImplementedError("This class cannot be instantiated.")
 
     @staticmethod
-    def get_selected_pose_bones(armature):
-        if armature.mode == 'EDIT':
-            with bpyutils.select_object(armature): # update selected bones
-                bpy.ops.object.mode_set(mode='EDIT') # back to edit mode
+    def find_pose_bone_by_bone_id(armature_object: bpy.types.Object, bone_id: int) -> Optional[bpy.types.PoseBone]:
+        for bone in armature_object.pose.bones:
+            if bone.mmd_bone.bone_id != bone_id:
+                continue
+            return bone
+        return None
+
+    @staticmethod
+    def __new_bone_id(armature_object: bpy.types.Object) -> int:
+        return max(b.mmd_bone.bone_id for b in armature_object.pose.bones) + 1
+
+    @staticmethod
+    def get_or_assign_bone_id(pose_bone: bpy.types.PoseBone) -> int:
+        if pose_bone.mmd_bone.bone_id < 0:
+            pose_bone.mmd_bone.bone_id = FnBone.__new_bone_id(pose_bone.id_data)
+        return pose_bone.mmd_bone.bone_id
+
+    @staticmethod
+    def __get_selected_pose_bones(armature_object: bpy.types.Object) -> Iterable[bpy.types.PoseBone]:
+        if armature_object.mode == "EDIT":
+            with bpyutils.select_object(armature_object):  # update selected bones
+                bpy.ops.object.mode_set(mode="EDIT")  # back to edit mode
         context_selected_bones = bpy.context.selected_pose_bones or bpy.context.selected_bones or []
-        bones = armature.pose.bones
+        bones = armature_object.pose.bones
         return (bones[b.name] for b in context_selected_bones if not bones[b.name].is_mmd_shadow_bone)
 
-    @classmethod
-    def load_bone_fixed_axis(cls, armature, enable=True):
-        for b in cls.get_selected_pose_bones(armature):
-            mmd_bone = b.mmd_bone
+    @staticmethod
+    def load_bone_fixed_axis(armature_object: bpy.types.Object, enable=True):
+        for b in FnBone.__get_selected_pose_bones(armature_object):
+            mmd_bone: MMDBone = b.mmd_bone
             mmd_bone.enabled_fixed_axis = enable
             lock_rotation = b.lock_rotation[:]
             if enable:
@@ -82,25 +87,165 @@ class FnBone(object):
                 if lock_rotation.count(False) == 1:
                     mmd_bone.fixed_axis = axes[lock_rotation.index(False)].xzy
                 else:
-                    mmd_bone.fixed_axis = axes[1].xzy # Y-axis
-            elif all(b.lock_location) and lock_rotation.count(True) > 1 and \
-                    lock_rotation == (b.lock_ik_x, b.lock_ik_y, b.lock_ik_z):
+                    mmd_bone.fixed_axis = axes[1].xzy  # Y-axis
+            elif all(b.lock_location) and lock_rotation.count(True) > 1 and lock_rotation == (b.lock_ik_x, b.lock_ik_y, b.lock_ik_z):
                 # unlock transform locks if fixed axis was applied
                 b.lock_ik_x, b.lock_ik_y, b.lock_ik_z = b.lock_rotation = (False, False, False)
                 b.lock_location = b.lock_scale = (False, False, False)
 
-    @classmethod
-    def apply_bone_fixed_axis(cls, armature):
+    @staticmethod
+    def setup_special_bone_collections(armature_object: bpy.types.Object) -> bpy.types.Object:
+        armature: bpy.types.Armature = armature_object.data
+        bone_collections = armature.collections
+        for bone_collection_name in SPECIAL_BONE_COLLECTION_NAMES:
+            if bone_collection_name in bone_collections:
+                continue
+            bone_collection = bone_collections.new(bone_collection_name)
+            FnBone.__set_bone_collection_to_special(bone_collection, is_visible=False)
+        return armature_object
+
+    @staticmethod
+    def __is_mmd_tools_bone_collection(bone_collection) -> bool:
+        return BONE_COLLECTION_CUSTOM_PROPERTY_NAME in bone_collection
+
+    @staticmethod
+    def __is_special_bone_collection(bone_collection) -> bool:
+        return BONE_COLLECTION_CUSTOM_PROPERTY_VALUE_SPECIAL == bone_collection.get(BONE_COLLECTION_CUSTOM_PROPERTY_NAME)
+
+    @staticmethod
+    def __set_bone_collection_to_special(bone_collection, is_visible: bool):
+        bone_collection[BONE_COLLECTION_CUSTOM_PROPERTY_NAME] = BONE_COLLECTION_CUSTOM_PROPERTY_VALUE_SPECIAL
+        bone_collection.is_visible = is_visible
+
+    @staticmethod
+    def __is_normal_bone_collection(bone_collection) -> bool:
+        return BONE_COLLECTION_CUSTOM_PROPERTY_VALUE_NORMAL == bone_collection.get(BONE_COLLECTION_CUSTOM_PROPERTY_NAME)
+
+    @staticmethod
+    def __set_bone_collection_to_normal(bone_collection):
+        bone_collection[BONE_COLLECTION_CUSTOM_PROPERTY_NAME] = BONE_COLLECTION_CUSTOM_PROPERTY_VALUE_NORMAL
+
+    @staticmethod
+    def __set_edit_bone_to_special(edit_bone: bpy.types.EditBone, bone_collection_name: str) -> bpy.types.EditBone:
+        edit_bone.id_data.collections[bone_collection_name].assign(edit_bone)
+        edit_bone.use_deform = False
+        return edit_bone
+
+    @staticmethod
+    def set_edit_bone_to_dummy(edit_bone: bpy.types.EditBone) -> bpy.types.EditBone:
+        return FnBone.__set_edit_bone_to_special(edit_bone, BONE_COLLECTION_NAME_DUMMY)
+
+    @staticmethod
+    def set_edit_bone_to_shadow(edit_bone: bpy.types.EditBone) -> bpy.types.EditBone:
+        return FnBone.__set_edit_bone_to_special(edit_bone, BONE_COLLECTION_NAME_SHADOW)
+
+    @staticmethod
+    def __unassign_mmd_tools_bone_collections(edit_bone: bpy.types.EditBone) -> bpy.types.EditBone:
+        for bone_collection in edit_bone.collections:
+            if not FnBone.__is_mmd_tools_bone_collection(bone_collection):
+                continue
+            bone_collection.unassign(edit_bone)
+        return edit_bone
+
+    @staticmethod
+    def sync_bone_collections_from_display_item_frames(armature_object: bpy.types.Object):
+        armature: bpy.types.Armature = armature_object.data
+        bone_collections = armature.collections
+
+        from mmd_tools.core.model import FnModel
+
+        root_object: bpy.types.Object = FnModel.find_root_object(armature_object)
+        mmd_root: MMDRoot = root_object.mmd_root
+
+        bones = armature.bones
+        used_groups = set()
+        unassigned_bone_names = {b.name for b in bones}
+
+        for frame in mmd_root.display_item_frames:
+            for item in frame.data:
+                if item.type == "BONE" and item.name in unassigned_bone_names:
+                    unassigned_bone_names.remove(item.name)
+                    group_name = frame.name
+                    used_groups.add(group_name)
+                    bone_collection = bone_collections.get(group_name)
+                    if bone_collection is None:
+                        bone_collection = bone_collections.new(name=group_name)
+                        FnBone.__set_bone_collection_to_normal(bone_collection)
+                    bone_collection.assign(bones[item.name])
+
+        for name in unassigned_bone_names:
+            for bc in bones[name].collections:
+                if not FnBone.__is_mmd_tools_bone_collection(bc):
+                    continue
+                if not FnBone.__is_normal_bone_collection(bc):
+                    continue
+                bc.unassign(bones[name])
+
+        # remove unused bone groups
+        for bone_collection in bone_collections.values():
+            if bone_collection.name in used_groups:
+                continue
+            if not FnBone.__is_mmd_tools_bone_collection(bone_collection):
+                continue
+            if not FnBone.__is_normal_bone_collection(bone_collection):
+                continue
+            bone_collections.remove(bone_collection)
+
+    @staticmethod
+    def sync_display_item_frames_from_bone_collections(armature_object: bpy.types.Object):
+        armature: bpy.types.Armature = armature_object.data
+        bone_collections: bpy.types.BoneCollections = armature.collections
+
+        from mmd_tools.core.model import FnModel
+
+        root_object: bpy.types.Object = FnModel.find_root_object(armature_object)
+        mmd_root: MMDRoot = root_object.mmd_root
+        display_item_frames = mmd_root.display_item_frames
+
+        used_frame_index: Set[int] = set()
+
+        bone_collection: bpy.types.BoneCollection
+        for bone_collection in bone_collections:
+            if len(bone_collection.bones) == 0 or FnBone.__is_special_bone_collection(bone_collection):
+                continue
+
+            bone_collection_name = bone_collection.name
+            display_item_frame: Optional[MMDDisplayItemFrame] = display_item_frames.get(bone_collection_name)
+            if display_item_frame is None:
+                display_item_frame = display_item_frames.add()
+                display_item_frame.name = bone_collection_name
+                display_item_frame.name_e = bone_collection_name
+            used_frame_index.add(display_item_frames.find(bone_collection_name))
+
+            mmd_tools.utils.ItemOp.resize(display_item_frame.data, len(bone_collection.bones))
+            for display_item, bone in zip(display_item_frame.data, bone_collection.bones):
+                display_item.type = "BONE"
+                display_item.name = bone.name
+
+        for i in reversed(range(len(display_item_frames))):
+            if i in used_frame_index:
+                continue
+            display_item_frame = display_item_frames[i]
+            if display_item_frame.is_special:
+                if display_item_frame.name != "表情":
+                    display_item_frame.data.clear()
+            else:
+                display_item_frames.remove(i)
+        mmd_root.active_display_item_frame = 0
+
+    @staticmethod
+    def apply_bone_fixed_axis(armature_object: bpy.types.Object):
         bone_map = {}
-        for b in armature.pose.bones:
+        for b in armature_object.pose.bones:
             if b.is_mmd_shadow_bone or not b.mmd_bone.enabled_fixed_axis:
                 continue
-            mmd_bone = b.mmd_bone
+            mmd_bone: MMDBone = b.mmd_bone
             parent_tip = b.parent and not b.parent.is_mmd_shadow_bone and b.parent.mmd_bone.is_tip
             bone_map[b.name] = (mmd_bone.fixed_axis.normalized(), mmd_bone.is_tip, parent_tip)
 
         force_align = True
-        with bpyutils.edit_object(armature) as data:
+        with bpyutils.edit_object(armature_object) as data:
+            bone: bpy.types.EditBone
             for bone in data.edit_bones:
                 if bone.name not in bone_map:
                     bone.select = False
@@ -110,7 +255,7 @@ class FnBone(object):
                     axes = [bone.x_axis, bone.y_axis, bone.z_axis]
                     direction = fixed_axis.normalized().xzy
                     idx, val = max([(i, direction.dot(v)) for i, v in enumerate(axes)], key=lambda x: abs(x[1]))
-                    idx_1, idx_2 = (idx+1)%3, (idx+2)%3
+                    idx_1, idx_2 = (idx + 1) % 3, (idx + 2) % 3
                     axes[idx] = -direction if val < 0 else direction
                     axes[idx_2] = axes[idx].cross(axes[idx_1])
                     axes[idx_1] = axes[idx_2].cross(axes[idx])
@@ -118,7 +263,7 @@ class FnBone(object):
                         bone.use_connect = False
                         bone.head = bone.parent.head
                     if force_align:
-                        tail = bone.head + axes[1].normalized()*bone.length
+                        tail = bone.head + axes[1].normalized() * bone.length
                         if is_tip or (tail - bone.tail).length > 1e-4:
                             for c in bone.children:
                                 if c.use_connect:
@@ -127,76 +272,75 @@ class FnBone(object):
                                         c.head = bone.head
                         bone.tail = tail
                     bone.align_roll(axes[2])
-                    bone_map[bone.name] = tuple(i!=idx for i in range(3))
+                    bone_map[bone.name] = tuple(i != idx for i in range(3))
                 else:
                     bone_map[bone.name] = (True, True, True)
                 bone.select = True
 
         for bone_name, locks in bone_map.items():
-            b = armature.pose.bones[bone_name]
+            b = armature_object.pose.bones[bone_name]
             b.lock_location = (True, True, True)
             b.lock_ik_x, b.lock_ik_y, b.lock_ik_z = b.lock_rotation = locks
 
-    @classmethod
-    def load_bone_local_axes(cls, armature, enable=True):
-        for b in cls.get_selected_pose_bones(armature):
-            mmd_bone = b.mmd_bone
+    @staticmethod
+    def load_bone_local_axes(armature_object: bpy.types.Object, enable=True):
+        for b in FnBone.__get_selected_pose_bones(armature_object):
+            mmd_bone: MMDBone = b.mmd_bone
             mmd_bone.enabled_local_axes = enable
             if enable:
                 axes = b.bone.matrix_local.to_3x3().transposed()
                 mmd_bone.local_axis_x = axes[0].xzy
                 mmd_bone.local_axis_z = axes[2].xzy
 
-    @classmethod
-    def apply_bone_local_axes(cls, armature):
+    @staticmethod
+    def apply_bone_local_axes(armature_object: bpy.types.Object):
         bone_map = {}
-        for b in armature.pose.bones:
+        for b in armature_object.pose.bones:
             if b.is_mmd_shadow_bone or not b.mmd_bone.enabled_local_axes:
                 continue
-            mmd_bone = b.mmd_bone
+            mmd_bone: MMDBone = b.mmd_bone
             bone_map[b.name] = (mmd_bone.local_axis_x, mmd_bone.local_axis_z)
 
-        with bpyutils.edit_object(armature) as data:
+        with bpyutils.edit_object(armature_object) as data:
+            bone: bpy.types.EditBone
             for bone in data.edit_bones:
                 if bone.name not in bone_map:
                     bone.select = False
                     continue
                 local_axis_x, local_axis_z = bone_map[bone.name]
-                cls.update_bone_roll(bone, local_axis_x, local_axis_z)
+                FnBone.update_bone_roll(bone, local_axis_x, local_axis_z)
                 bone.select = True
 
-    @classmethod
-    def update_bone_roll(cls, edit_bone, mmd_local_axis_x, mmd_local_axis_z):
-        axes = cls.get_axes(mmd_local_axis_x, mmd_local_axis_z)
+    @staticmethod
+    def update_bone_roll(edit_bone: bpy.types.EditBone, mmd_local_axis_x, mmd_local_axis_z):
+        axes = FnBone.get_axes(mmd_local_axis_x, mmd_local_axis_z)
         idx, val = max([(i, edit_bone.vector.dot(v)) for i, v in enumerate(axes)], key=lambda x: abs(x[1]))
-        edit_bone.align_roll(axes[(idx-1)%3 if val < 0 else (idx+1)%3])
+        edit_bone.align_roll(axes[(idx - 1) % 3 if val < 0 else (idx + 1) % 3])
 
     @staticmethod
     def get_axes(mmd_local_axis_x, mmd_local_axis_z):
         x_axis = Vector(mmd_local_axis_x).normalized().xzy
         z_axis = Vector(mmd_local_axis_z).normalized().xzy
         y_axis = z_axis.cross(x_axis).normalized()
-        z_axis = x_axis.cross(y_axis).normalized() # correction
+        z_axis = x_axis.cross(y_axis).normalized()  # correction
         return (x_axis, y_axis, z_axis)
 
-    @classmethod
-    def apply_auto_bone_roll(cls, armature):
+    @staticmethod
+    def apply_auto_bone_roll(armature):
         bone_names = []
         for b in armature.pose.bones:
-            if (not b.is_mmd_shadow_bone and
-                    not b.mmd_bone.enabled_local_axes and
-                    cls.has_auto_local_axis(b.mmd_bone.name_j)):
+            if not b.is_mmd_shadow_bone and not b.mmd_bone.enabled_local_axes and FnBone.has_auto_local_axis(b.mmd_bone.name_j):
                 bone_names.append(b.name)
         with bpyutils.edit_object(armature) as data:
+            bone: bpy.types.EditBone
             for bone in data.edit_bones:
                 if bone.name not in bone_names:
-                    select = False
                     continue
-                cls.update_auto_bone_roll(bone)
+                FnBone.update_auto_bone_roll(bone)
                 bone.select = True
 
-    @classmethod
-    def update_auto_bone_roll(cls, edit_bone):
+    @staticmethod
+    def update_auto_bone_roll(edit_bone):
         # make a triangle face (p1,p2,p3)
         p1 = edit_bone.head.copy()
         p2 = edit_bone.tail.copy()
@@ -212,56 +356,48 @@ class FnBone(object):
         # calculate the normal vector of the face
         y = (p2 - p1).normalized()
         z_tmp = (p3 - p1).normalized()
-        x = y.cross(z_tmp) # normal vector
+        x = y.cross(z_tmp)  # normal vector
         # z = x.cross(y)
-        cls.update_bone_roll(edit_bone, y.xzy, x.xzy)
+        FnBone.update_bone_roll(edit_bone, y.xzy, x.xzy)
 
-    @classmethod
-    def has_auto_local_axis(cls, name_j):
+    @staticmethod
+    def has_auto_local_axis(name_j):
         if name_j:
-            if (name_j in cls.AUTO_LOCAL_AXIS_ARMS or
-                    name_j in cls.AUTO_LOCAL_AXIS_SEMI_STANDARD_ARMS):
+            if name_j in FnBone.AUTO_LOCAL_AXIS_ARMS or name_j in FnBone.AUTO_LOCAL_AXIS_SEMI_STANDARD_ARMS:
                 return True
-            for finger_name in cls.AUTO_LOCAL_AXIS_FINGERS:
+            for finger_name in FnBone.AUTO_LOCAL_AXIS_FINGERS:
                 if finger_name in name_j:
                     return True
         return False
 
     @staticmethod
-    def patch_rna_idprop(pose_bones):
-        if bpy.app.version < (2, 81, 0): # workaround for Rigify conflicts (fixed in Blender 2.81)
-            from rna_prop_ui import rna_idprop_ui_get
-            for b in pose_bones:
-                rna_idprop_ui_get(b, create=True)
-
-    @classmethod
-    def clean_additional_transformation(cls, armature):
+    def clean_additional_transformation(armature):
         # clean constraints
         for p_bone in armature.pose.bones:
             p_bone.mmd_bone.is_additional_transform_dirty = True
             constraints = p_bone.constraints
-            remove_constraint(constraints, 'mmd_additional_rotation')
-            remove_constraint(constraints, 'mmd_additional_location')
-            if remove_constraint(constraints, 'mmd_additional_parent'):
+            remove_constraint(constraints, "mmd_additional_rotation")
+            remove_constraint(constraints, "mmd_additional_location")
+            if remove_constraint(constraints, "mmd_additional_parent"):
                 p_bone.bone.use_inherit_rotation = True
         # clean shadow bones
         shadow_bone_types = {
-            'DUMMY',
-            'SHADOW',
-            'ADDITIONAL_TRANSFORM',
-            'ADDITIONAL_TRANSFORM_INVERT',
+            "DUMMY",
+            "SHADOW",
+            "ADDITIONAL_TRANSFORM",
+            "ADDITIONAL_TRANSFORM_INVERT",
         }
+
         def __is_at_shadow_bone(b):
             return b.is_mmd_shadow_bone and b.mmd_shadow_bone_type in shadow_bone_types
+
         shadow_bone_names = [b.name for b in armature.pose.bones if __is_at_shadow_bone(b)]
         if len(shadow_bone_names) > 0:
             with bpyutils.edit_object(armature) as data:
                 remove_edit_bones(data.edit_bones, shadow_bone_names)
-        cls.patch_rna_idprop(armature.pose.bones)
 
-    @classmethod
-    def apply_additional_transformation(cls, armature):
-
+    @staticmethod
+    def apply_additional_transformation(armature_object: bpy.types.Object):
         def __is_dirty_bone(b):
             if b.is_mmd_shadow_bone:
                 return False
@@ -269,43 +405,43 @@ class FnBone(object):
             if mmd_bone.has_additional_rotation or mmd_bone.has_additional_location:
                 return True
             return mmd_bone.is_additional_transform_dirty
-        dirty_bones = [b for b in armature.pose.bones if __is_dirty_bone(b)]
+
+        dirty_bones = [b for b in armature_object.pose.bones if __is_dirty_bone(b)]
 
         # setup constraints
         shadow_bone_pool = []
         for p_bone in dirty_bones:
-            sb = cls.__setup_constraints(p_bone)
+            sb = FnBone.__setup_constraints(p_bone)
             if sb:
                 shadow_bone_pool.append(sb)
 
         # setup shadow bones
-        with bpyutils.edit_object(armature) as data:
+        with bpyutils.edit_object(armature_object) as data:
             edit_bones = data.edit_bones
             for sb in shadow_bone_pool:
                 sb.update_edit_bones(edit_bones)
 
-        pose_bones = armature.pose.bones
+        pose_bones = armature_object.pose.bones
         for sb in shadow_bone_pool:
             sb.update_pose_bones(pose_bones)
 
         # finish
         for p_bone in dirty_bones:
             p_bone.mmd_bone.is_additional_transform_dirty = False
-        cls.patch_rna_idprop(armature.pose.bones)
 
-    @classmethod
-    def __setup_constraints(cls, p_bone):
+    @staticmethod
+    def __setup_constraints(p_bone):
         bone_name = p_bone.name
         mmd_bone = p_bone.mmd_bone
         influence = mmd_bone.additional_transform_influence
         target_bone = mmd_bone.additional_transform_bone
-        mute_rotation = not mmd_bone.has_additional_rotation #or p_bone.is_in_ik_chain
+        mute_rotation = not mmd_bone.has_additional_rotation  # or p_bone.is_in_ik_chain
         mute_location = not mmd_bone.has_additional_location
 
         constraints = p_bone.constraints
         if not target_bone or (mute_rotation and mute_location) or influence == 0:
-            rot = remove_constraint(constraints, 'mmd_additional_rotation')
-            loc = remove_constraint(constraints, 'mmd_additional_location')
+            rot = remove_constraint(constraints, "mmd_additional_rotation")
+            loc = remove_constraint(constraints, "mmd_additional_location")
             if rot or loc:
                 return _AT_ShadowBoneRemove(bone_name)
             return None
@@ -321,35 +457,37 @@ class FnBone(object):
             shadow_bone.add_constraint(c)
             TransformConstraintOp.update_min_max(c, value, influence)
 
-        __config('mmd_additional_rotation', mute_rotation, 'ROTATION', pi)
-        __config('mmd_additional_location', mute_location, 'LOCATION', 100)
+        __config("mmd_additional_rotation", mute_rotation, "ROTATION", math.pi)
+        __config("mmd_additional_location", mute_location, "LOCATION", 100)
 
         return shadow_bone
 
-    def update_additional_transform_influence(self):
-        p_bone = self.__bone
-        influence = p_bone.mmd_bone.additional_transform_influence
-        constraints = p_bone.constraints
-        c = constraints.get('mmd_additional_rotation', None)
-        TransformConstraintOp.update_min_max(c, pi, influence)
-        c = constraints.get('mmd_additional_location', None)
+    @staticmethod
+    def update_additional_transform_influence(pose_bone: bpy.types.PoseBone):
+        influence = pose_bone.mmd_bone.additional_transform_influence
+        constraints = pose_bone.constraints
+        c = constraints.get("mmd_additional_rotation", None)
+        TransformConstraintOp.update_min_max(c, math.pi, influence)
+        c = constraints.get("mmd_additional_location", None)
         TransformConstraintOp.update_min_max(c, 100, influence)
 
-class MigrationFnBone(object):
+
+class MigrationFnBone:
     """Migration Functions for old MMD models broken by bugs or issues"""
 
-    @classmethod
-    def fix_mmd_ik_limit_override(cls, armature_object: bpy.types.Object):
+    @staticmethod
+    def fix_mmd_ik_limit_override(armature_object: bpy.types.Object):
         pose_bone: bpy.types.PoseBone
         for pose_bone in armature_object.pose.bones:
             constraint: bpy.types.Constraint
             for constraint in pose_bone.constraints:
-                if constraint.type == 'LIMIT_ROTATION' and 'mmd_ik_limit_override' in constraint.name:
-                    constraint.owner_space = 'LOCAL'
+                if constraint.type == "LIMIT_ROTATION" and "mmd_ik_limit_override" in constraint.name:
+                    constraint.owner_space = "LOCAL"
+
 
 class _AT_ShadowBoneRemove:
     def __init__(self, bone_name):
-        self.__shadow_bone_names = ('_dummy_' + bone_name, '_shadow_' + bone_name)
+        self.__shadow_bone_names = ("_dummy_" + bone_name, "_shadow_" + bone_name)
 
     def update_edit_bones(self, edit_bones):
         remove_edit_bones(edit_bones, self.__shadow_bone_names)
@@ -357,10 +495,11 @@ class _AT_ShadowBoneRemove:
     def update_pose_bones(self, pose_bones):
         pass
 
+
 class _AT_ShadowBoneCreate:
     def __init__(self, bone_name, target_bone_name):
-        self.__dummy_bone_name = '_dummy_' + bone_name
-        self.__shadow_bone_name = '_shadow_' + bone_name
+        self.__dummy_bone_name = "_dummy_" + bone_name
+        self.__shadow_bone_name = "_shadow_" + bone_name
         self.__bone_name = bone_name
         self.__target_bone_name = target_bone_name
         self.__constraint_pool = []
@@ -384,22 +523,14 @@ class _AT_ShadowBoneCreate:
             return
 
         dummy_bone_name = self.__dummy_bone_name
-        dummy = edit_bones.get(dummy_bone_name, None)
-        if dummy is None:
-            dummy = edit_bones.new(name=dummy_bone_name)
-            dummy.layers = [x == 9 for x in range(len(dummy.layers))]
-            dummy.use_deform = False
+        dummy = edit_bones.get(dummy_bone_name, None) or FnBone.set_edit_bone_to_dummy(edit_bones.new(name=dummy_bone_name))
         dummy.parent = target_bone
         dummy.head = target_bone.head
         dummy.tail = dummy.head + bone.tail - bone.head
         dummy.roll = bone.roll
 
         shadow_bone_name = self.__shadow_bone_name
-        shadow = edit_bones.get(shadow_bone_name, None)
-        if shadow is None:
-            shadow = edit_bones.new(name=shadow_bone_name)
-            shadow.layers = [x == 8 for x in range(len(shadow.layers))]
-            shadow.use_deform = False
+        shadow = edit_bones.get(shadow_bone_name, None) or FnBone.set_edit_bone_to_shadow(edit_bones.new(name=shadow_bone_name))
         shadow.parent = target_bone.parent
         shadow.head = dummy.head
         shadow.tail = dummy.tail
@@ -412,19 +543,18 @@ class _AT_ShadowBoneCreate:
 
         dummy_p_bone = pose_bones[self.__dummy_bone_name]
         dummy_p_bone.is_mmd_shadow_bone = True
-        dummy_p_bone.mmd_shadow_bone_type = 'DUMMY'
+        dummy_p_bone.mmd_shadow_bone_type = "DUMMY"
 
         shadow_p_bone = pose_bones[self.__shadow_bone_name]
         shadow_p_bone.is_mmd_shadow_bone = True
-        shadow_p_bone.mmd_shadow_bone_type = 'SHADOW'
+        shadow_p_bone.mmd_shadow_bone_type = "SHADOW"
 
-        if 'mmd_tools_at_dummy' not in shadow_p_bone.constraints:
-            c = shadow_p_bone.constraints.new('COPY_TRANSFORMS')
-            c.name = 'mmd_tools_at_dummy'
+        if "mmd_tools_at_dummy" not in shadow_p_bone.constraints:
+            c = shadow_p_bone.constraints.new("COPY_TRANSFORMS")
+            c.name = "mmd_tools_at_dummy"
             c.target = dummy_p_bone.id_data
             c.subtarget = dummy_p_bone.name
-            c.target_space = 'POSE'
-            c.owner_space = 'POSE'
+            c.target_space = "POSE"
+            c.owner_space = "POSE"
 
         self.__update_constraints()
-

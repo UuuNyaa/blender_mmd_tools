@@ -1,66 +1,73 @@
 # -*- coding: utf-8 -*-
-from typing import TYPE_CHECKING
+# Copyright 2021 MMD Tools authors
+# This file is part of MMD Tools.
+
+from typing import TYPE_CHECKING, cast
 
 import bpy
+
 from mmd_tools.core.model import FnModel, Model
-from mmd_tools.core.translations import (MMD_DATA_TYPE_TO_HANDLERS,
-                                         FnTranslations)
+from mmd_tools.core.translations import MMD_DATA_TYPE_TO_HANDLERS, FnTranslations
 from mmd_tools.translations import DictionaryEnum
 
 if TYPE_CHECKING:
-    from mmd_tools.properties.translations import (MMDTranslation,
-                                                   MMDTranslationElement,
-                                                   MMDTranslationElementIndex)
+    from mmd_tools.properties.translations import MMDTranslation, MMDTranslationElement, MMDTranslationElementIndex
 
 
 class TranslateMMDModel(bpy.types.Operator):
-    bl_idname = 'mmd_tools.translate_mmd_model'
-    bl_label = 'Translate a MMD Model'
-    bl_description = 'Translate Japanese names of a MMD model'
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+    bl_idname = "mmd_tools.translate_mmd_model"
+    bl_label = "Translate a MMD Model"
+    bl_description = "Translate Japanese names of a MMD model"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     dictionary: bpy.props.EnumProperty(
-        name='Dictionary',
+        name="Dictionary",
         items=DictionaryEnum.get_dictionary_items,
-        description='Translate names from Japanese to English using selected dictionary',
+        description="Translate names from Japanese to English using selected dictionary",
     )
     types: bpy.props.EnumProperty(
-        name='Types',
-        description='Select which parts will be translated',
-        options={'ENUM_FLAG'},
+        name="Types",
+        description="Select which parts will be translated",
+        options={"ENUM_FLAG"},
         items=[
-            ('BONE', 'Bones', 'Bones', 1),
-            ('MORPH', 'Morphs', 'Morphs', 2),
-            ('MATERIAL', 'Materials', 'Materials', 4),
-            ('DISPLAY', 'Display', 'Display frames', 8),
-            ('PHYSICS', 'Physics', 'Rigidbodies and joints', 16),
-            ('INFO', 'Information', 'Model name and comments', 32),
+            ("BONE", "Bones", "Bones", 1),
+            ("MORPH", "Morphs", "Morphs", 2),
+            ("MATERIAL", "Materials", "Materials", 4),
+            ("DISPLAY", "Display", "Display frames", 8),
+            ("PHYSICS", "Physics", "Rigidbodies and joints", 16),
+            ("INFO", "Information", "Model name and comments", 32),
         ],
-        default={'BONE', 'MORPH', 'MATERIAL', 'DISPLAY', 'PHYSICS', },
+        default={
+            "BONE",
+            "MORPH",
+            "MATERIAL",
+            "DISPLAY",
+            "PHYSICS",
+        },
     )
     modes: bpy.props.EnumProperty(
-        name='Modes',
-        description='Select translation mode',
-        options={'ENUM_FLAG'},
+        name="Modes",
+        description="Select translation mode",
+        options={"ENUM_FLAG"},
         items=[
-            ('MMD', 'MMD Names', 'Fill MMD English names', 1),
-            ('BLENDER', 'Blender Names', 'Translate blender names (experimental)', 2),
+            ("MMD", "MMD Names", "Fill MMD English names", 1),
+            ("BLENDER", "Blender Names", "Translate blender names (experimental)", 2),
         ],
-        default={'MMD'},
+        default={"MMD"},
     )
     use_morph_prefix: bpy.props.BoolProperty(
-        name='Use Morph Prefix',
-        description='Add/remove prefix to English name of morph',
+        name="Use Morph Prefix",
+        description="Add/remove prefix to English name of morph",
         default=False,
     )
     overwrite: bpy.props.BoolProperty(
-        name='Overwrite',
-        description='Overwrite a translated English name',
+        name="Overwrite",
+        description="Overwrite a translated English name",
         default=False,
     )
     allow_fails: bpy.props.BoolProperty(
-        name='Allow Fails',
-        description='Allow incompletely translated names',
+        name="Allow Fails",
+        description="Allow incompletely translated names",
         default=False,
     )
 
@@ -72,25 +79,25 @@ class TranslateMMDModel(bpy.types.Operator):
         try:
             self.__translator = DictionaryEnum.get_translator(self.dictionary)
         except Exception as e:
-            self.report({'ERROR'}, 'Failed to load dictionary: %s' % e)
-            return {'CANCELLED'}
+            self.report({"ERROR"}, "Failed to load dictionary: %s" % e)
+            return {"CANCELLED"}
 
         obj = context.active_object
-        root = FnModel.find_root(obj)
+        root = FnModel.find_root_object(obj)
         rig = Model(root)
 
-        if 'MMD' in self.modes:
+        if "MMD" in self.modes:
             for i in self.types:
-                getattr(self, 'translate_%s' % i.lower())(rig)
+                getattr(self, "translate_%s" % i.lower())(rig)
 
-        if 'BLENDER' in self.modes:
+        if "BLENDER" in self.modes:
             self.translate_blender_names(rig)
 
         translator = self.__translator
         txt = translator.save_fails()
         if translator.fails:
-            self.report({'WARNING'}, "Failed to translate %d names, see '%s' in text editor" % (len(translator.fails), txt.name))
-        return {'FINISHED'}
+            self.report({"WARNING"}, "Failed to translate %d names, see '%s' in text editor" % (len(translator.fails), txt.name))
+        return {"FINISHED"}
 
     def translate(self, name_j, name_e):
         if not self.overwrite and name_e and self.__translator.is_translated(name_e):
@@ -99,32 +106,33 @@ class TranslateMMDModel(bpy.types.Operator):
             name_e = None
         return self.__translator.translate(name_j, name_e)
 
-    def translate_blender_names(self, rig):
-        if 'BONE' in self.types:
+    def translate_blender_names(self, rig: Model):
+        if "BONE" in self.types:
             for b in rig.armature().pose.bones:
                 rig.renameBone(b.name, self.translate(b.name, b.name))
 
-        if 'MORPH' in self.types:
+        if "MORPH" in self.types:
             for i in (x for x in rig.meshes() if x.data.shape_keys):
                 for kb in i.data.shape_keys.key_blocks:
                     kb.name = self.translate(kb.name, kb.name)
 
-        if 'MATERIAL' in self.types:
+        if "MATERIAL" in self.types:
             for m in (x for x in rig.materials() if x):
                 m.name = self.translate(m.name, m.name)
 
-        if 'DISPLAY' in self.types:
-            for g in rig.armature().pose.bone_groups:
+        if "DISPLAY" in self.types:
+            g: bpy.types.BoneCollection
+            for g in cast(bpy.types.Armature, rig.armature().data).collections:
                 g.name = self.translate(g.name, g.name)
 
-        if 'PHYSICS' in self.types:
+        if "PHYSICS" in self.types:
             for i in rig.rigidBodies():
                 i.name = self.translate(i.name, i.name)
 
             for i in rig.joints():
                 i.name = self.translate(i.name, i.name)
 
-        if 'INFO' in self.types:
+        if "INFO" in self.types:
             objects = [rig.rootObject(), rig.armature()]
             objects.extend(rig.meshes())
             for i in objects:
@@ -149,10 +157,10 @@ class TranslateMMDModel(bpy.types.Operator):
 
     def translate_morph(self, rig):
         mmd_root = rig.rootObject().mmd_root
-        attr_list = ('group', 'vertex', 'bone', 'uv', 'material')
-        prefix_list = ('G_', '', 'B_', 'UV_', 'M_')
+        attr_list = ("group", "vertex", "bone", "uv", "material")
+        prefix_list = ("G_", "", "B_", "UV_", "M_")
         for attr, prefix in zip(attr_list, prefix_list):
-            for m in getattr(mmd_root, attr+'_morphs', []):
+            for m in getattr(mmd_root, attr + "_morphs", []):
                 m.name_e = self.translate(m.name, m.name_e)
                 if not prefix:
                     continue
@@ -160,7 +168,7 @@ class TranslateMMDModel(bpy.types.Operator):
                     if not m.name_e.startswith(prefix):
                         m.name_e = prefix + m.name_e
                 elif m.name_e.startswith(prefix):
-                    m.name_e = m.name_e[len(prefix):]
+                    m.name_e = m.name_e[len(prefix) :]
 
     def translate_material(self, rig):
         for m in rig.materials():
@@ -185,103 +193,106 @@ DEFAULT_SHOW_ROW_COUNT = 20
 
 
 class MMD_TOOLS_UL_MMDTranslationElementIndex(bpy.types.UIList):
-    def draw_item(self, context, layout: bpy.types.UILayout, data, mmd_translation_element_index: 'MMDTranslationElementIndex', icon, active_data, active_propname, index: int):
-        mmd_translation_element: 'MMDTranslationElement' = data.translation_elements[mmd_translation_element_index.value]
+    def draw_item(self, context, layout: bpy.types.UILayout, data, mmd_translation_element_index: "MMDTranslationElementIndex", icon, active_data, active_propname, index: int):
+        mmd_translation_element: "MMDTranslationElement" = data.translation_elements[mmd_translation_element_index.value]
         MMD_DATA_TYPE_TO_HANDLERS[mmd_translation_element.type].draw_item(layout, mmd_translation_element, index)
 
 
 class RestoreMMDDataReferenceOperator(bpy.types.Operator):
-    bl_idname = 'mmd_tools.restore_mmd_translation_element_name'
-    bl_label = 'Restore this Name'
-    bl_options = {'INTERNAL'}
+    bl_idname = "mmd_tools.restore_mmd_translation_element_name"
+    bl_label = "Restore this Name"
+    bl_options = {"INTERNAL"}
 
     index: bpy.props.IntProperty()
     prop_name: bpy.props.StringProperty()
     restore_value: bpy.props.StringProperty()
 
     def execute(self, context: bpy.types.Context):
-        root_object = FnModel.find_root(context.object)
+        root_object = FnModel.find_root_object(context.object)
         mmd_translation_element_index = root_object.mmd_root.translation.filtered_translation_element_indices[self.index].value
         mmd_translation_element = root_object.mmd_root.translation.translation_elements[mmd_translation_element_index]
         setattr(mmd_translation_element, self.prop_name, self.restore_value)
 
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 class GlobalTranslationPopup(bpy.types.Operator):
-    bl_idname = 'mmd_tools.global_translation_popup'
-    bl_label = 'Global Translation Popup'
-    bl_options = {'INTERNAL', 'UNDO'}
+    bl_idname = "mmd_tools.global_translation_popup"
+    bl_label = "Global Translation Popup"
+    bl_options = {"INTERNAL", "UNDO"}
 
     @classmethod
     def poll(cls, context):
-        return FnModel.find_root(context.object) is not None
+        return FnModel.find_root_object(context.object) is not None
 
     def draw(self, _context):
         layout = self.layout
         mmd_translation = self._mmd_translation
 
         col = layout.column(align=True)
-        col.label(text='Filter', icon='FILTER')
+        col.label(text="Filter", icon="FILTER")
         row = col.row()
-        row.prop(mmd_translation, 'filter_types')
+        row.prop(mmd_translation, "filter_types")
 
-        group = row.row(align=True, heading='is Blank:')
-        group.alignment = 'RIGHT'
-        group.prop(mmd_translation, 'filter_japanese_blank', toggle=True, text='Japanese')
-        group.prop(mmd_translation, 'filter_english_blank', toggle=True, text='English')
+        group = row.row(align=True, heading="is Blank:")
+        group.alignment = "RIGHT"
+        group.prop(mmd_translation, "filter_japanese_blank", toggle=True, text="Japanese")
+        group.prop(mmd_translation, "filter_english_blank", toggle=True, text="English")
 
         group = row.row(align=True)
-        group.prop(mmd_translation, 'filter_restorable', toggle=True, icon='FILE_REFRESH', icon_only=True)
-        group.prop(mmd_translation, 'filter_selected', toggle=True, icon='RESTRICT_SELECT_OFF', icon_only=True)
-        group.prop(mmd_translation, 'filter_visible', toggle=True, icon='HIDE_OFF', icon_only=True)
+        group.prop(mmd_translation, "filter_restorable", toggle=True, icon="FILE_REFRESH", icon_only=True)
+        group.prop(mmd_translation, "filter_selected", toggle=True, icon="RESTRICT_SELECT_OFF", icon_only=True)
+        group.prop(mmd_translation, "filter_visible", toggle=True, icon="HIDE_OFF", icon_only=True)
 
         col = layout.column(align=True)
         box = col.box().column(align=True)
         row = box.row(align=True)
-        row.label(text='Select the target column for Batch Operations:', icon='TRACKER')
+        row.label(text="Select the target column for Batch Operations:", icon="TRACKER")
         row = box.row(align=True)
-        row.label(text='', icon='BLANK1')
-        row.prop(mmd_translation, 'batch_operation_target', expand=True)
-        row.label(text='', icon='RESTRICT_SELECT_OFF')
-        row.label(text='', icon='HIDE_OFF')
+        row.label(text="", icon="BLANK1")
+        row.prop(mmd_translation, "batch_operation_target", expand=True)
+        row.label(text="", icon="RESTRICT_SELECT_OFF")
+        row.label(text="", icon="HIDE_OFF")
 
         if len(mmd_translation.filtered_translation_element_indices) > DEFAULT_SHOW_ROW_COUNT:
-            row.label(text='', icon='BLANK1')
+            row.label(text="", icon="BLANK1")
 
         col.template_list(
-            "MMD_TOOLS_UL_MMDTranslationElementIndex", "",
-            mmd_translation, 'filtered_translation_element_indices',
-            mmd_translation, 'filtered_translation_element_indices_active_index',
+            "MMD_TOOLS_UL_MMDTranslationElementIndex",
+            "",
+            mmd_translation,
+            "filtered_translation_element_indices",
+            mmd_translation,
+            "filtered_translation_element_indices_active_index",
             rows=DEFAULT_SHOW_ROW_COUNT,
         )
 
         box = layout.box().column(align=True)
-        box.label(text='Batch Operation:', icon='MODIFIER')
-        box.prop(mmd_translation, 'batch_operation_script', text='', icon='SCRIPT')
+        box.label(text="Batch Operation:", icon="MODIFIER")
+        box.prop(mmd_translation, "batch_operation_script", text="", icon="SCRIPT")
 
         box.separator()
         row = box.row()
-        row.prop(mmd_translation, 'batch_operation_script_preset', text='Preset', icon='CON_TRANSFORM_CACHE')
-        row.operator(ExecuteTranslationBatchOperator.bl_idname, text='Execute')
+        row.prop(mmd_translation, "batch_operation_script_preset", text="Preset", icon="CON_TRANSFORM_CACHE")
+        row.operator(ExecuteTranslationBatchOperator.bl_idname, text="Execute")
 
         box.separator()
         translation_box = box.box().column(align=True)
-        translation_box.label(text='Dictionaries:', icon='HELP')
+        translation_box.label(text="Dictionaries:", icon="HELP")
         row = translation_box.row()
-        row.prop(mmd_translation, 'dictionary', text='to_english')
+        row.prop(mmd_translation, "dictionary", text="to_english")
         # row.operator(ExecuteTranslationScriptOperator.bl_idname, text='Write to .csv')
 
         translation_box.separator()
         row = translation_box.row()
-        row.prop(mmd_translation, 'dictionary', text='replace')
+        row.prop(mmd_translation, "dictionary", text="replace")
 
     def invoke(self, context: bpy.types.Context, _event):
-        root_object = FnModel.find_root(context.object)
+        root_object = FnModel.find_root_object(context.object)
         if root_object is None:
-            return {'CANCELLED'}
+            return {"CANCELLED"}
 
-        mmd_translation: 'MMDTranslation' = root_object.mmd_root.translation
+        mmd_translation: "MMDTranslation" = root_object.mmd_root.translation
         self._mmd_translation = mmd_translation
         FnTranslations.clear_data(mmd_translation)
         FnTranslations.collect_data(mmd_translation)
@@ -290,28 +301,28 @@ class GlobalTranslationPopup(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=800)
 
     def execute(self, context):
-        root_object = FnModel.find_root(context.object)
+        root_object = FnModel.find_root_object(context.object)
         if root_object is None:
-            return {'CANCELLED'}
+            return {"CANCELLED"}
 
         FnTranslations.apply_translations(root_object)
         FnTranslations.clear_data(root_object.mmd_root.translation)
 
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 class ExecuteTranslationBatchOperator(bpy.types.Operator):
-    bl_idname = 'mmd_tools.execute_translation_batch'
-    bl_label = 'Execute Translation Batch'
-    bl_options = {'INTERNAL'}
+    bl_idname = "mmd_tools.execute_translation_batch"
+    bl_label = "Execute Translation Batch"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context: bpy.types.Context):
-        root = FnModel.find_root(context.object)
+        root = FnModel.find_root_object(context.object)
         if root is None:
-            return {'CANCELLED'}
+            return {"CANCELLED"}
 
         fails, text = FnTranslations.execute_translation_batch(root)
         if fails:
-            self.report({'WARNING'}, "Failed to translate %d names, see '%s' in text editor" % (len(fails), text.name))
+            self.report({"WARNING"}, "Failed to translate %d names, see '%s' in text editor" % (len(fails), text.name))
 
-        return {'FINISHED'}
+        return {"FINISHED"}

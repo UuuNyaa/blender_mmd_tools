@@ -13,39 +13,25 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Copy LICENSE file
         run: cp -p LICENSE mmd_tools/
 
+      - name: Remove typings for development
+        run: rm -rf mmd_tools/typings
+
       - name: Create a zip
-        run: zip -r -9 artifact.zip mmd_tools/
+        run: zip -r -9 mmd_tools-${GITHUB_REF_NAME}.zip mmd_tools/
 
       - name: Create a Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          files: |
+            mmd_tools-${{ github.ref_name }}.zip
           draft: true
+          generate_release_notes: true
           prerelease: false
-
-      - name: Branch name
-        id: branch_name
-        run: |
-          echo ::set-output name=name::${GITHUB_REF#refs/*/}
-          echo ::set-output name=branch::${GITHUB_REF#refs/heads/}
-          echo ::set-output name=tag::${GITHUB_REF#refs/tags/}
-
-      - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifact.zip
-          asset_name: mmd_tools-${{ steps.branch_name.outputs.tag }}.zip
-          asset_content_type: application/zip

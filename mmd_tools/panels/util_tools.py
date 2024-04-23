@@ -1,75 +1,69 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 MMD Tools authors
+# This file is part of MMD Tools.
 
 import bpy
 from bpy.types import Panel, UIList
 
 from mmd_tools.bpyutils import SceneOp
 from mmd_tools.core.model import FnModel, Model
-from mmd_tools.panels.tool import TRIA_UP_BAR, TRIA_DOWN_BAR
-from mmd_tools.panels.tool import _layout_split
 from mmd_tools.panels.tool import _PanelBase
-
-
-ICON_APPEND_MOVE, ICON_APPEND_ROT, ICON_APPEND_MOVE_ROT = 'IPO_LINEAR', 'IPO_EXPO', 'IPO_QUAD'
-if bpy.app.version < (2, 71, 0):
-    ICON_APPEND_MOVE, ICON_APPEND_ROT, ICON_APPEND_MOVE_ROT = 'NDOF_TRANS', 'NDOF_TURN', 'FORCE_MAGNETIC'
 
 
 class MMD_TOOLS_UL_Materials(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        if self.layout_type in {'DEFAULT'}:
+        if self.layout_type in {"DEFAULT"}:
             if item:
                 row = layout.row(align=True)
-                item_prop = getattr(item, 'mmd_material')
-                row.prop(item_prop, 'name_j', text='', emboss=False, icon='MATERIAL')
-                row.prop(item_prop, 'name_e', text='', emboss=True)
+                item_prop = getattr(item, "mmd_material")
+                row.prop(item_prop, "name_j", text="", emboss=False, icon="MATERIAL")
+                row.prop(item_prop, "name_e", text="", emboss=True)
             else:
-                layout.label(text='UNSET', translate=False, icon='ERROR')
-        elif self.layout_type in {'COMPACT'}:
+                layout.label(text="UNSET", translate=False, icon="ERROR")
+        elif self.layout_type in {"COMPACT"}:
             pass
-        elif self.layout_type in {'GRID'}:
-            layout.alignment = 'CENTER'
+        elif self.layout_type in {"GRID"}:
+            layout.alignment = "CENTER"
             layout.label(text="", icon_value=icon)
 
     def draw_filter(self, context, layout):
-        layout.label(text="Use the arrows to sort", icon='INFO')
+        layout.label(text="Use the arrows to sort", icon="INFO")
+
 
 class MMDMaterialSorter(_PanelBase, Panel):
-    bl_idname = 'OBJECT_PT_mmd_tools_material_sorter'
-    bl_label = 'Material Sorter'
-    bl_context = ''
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_idname = "OBJECT_PT_mmd_tools_material_sorter"
+    bl_label = "Material Sorter"
+    bl_context = ""
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
         active_obj = context.active_object
-        if (active_obj is None or active_obj.type != 'MESH' or
-            active_obj.mmd_type != 'NONE'):
-            layout.label(text='Select a mesh object')
+        if active_obj is None or active_obj.type != "MESH" or active_obj.mmd_type != "NONE":
+            layout.label(text="Select a mesh object")
             return
 
         col = layout.column(align=True)
         row = col.row()
-        row.template_list("MMD_TOOLS_UL_Materials", "",
-                          active_obj.data, "materials",
-                          active_obj, "active_material_index")
+        row.template_list("MMD_TOOLS_UL_Materials", "", active_obj.data, "materials", active_obj, "active_material_index")
         tb = row.column()
         tb1 = tb.column(align=True)
-        tb1.operator('mmd_tools.move_material_up', text='', icon='TRIA_UP')
-        tb1.operator('mmd_tools.move_material_down', text='', icon='TRIA_DOWN')
+        tb1.operator("mmd_tools.move_material_up", text="", icon="TRIA_UP")
+        tb1.operator("mmd_tools.move_material_down", text="", icon="TRIA_DOWN")
+
 
 class MMD_TOOLS_UL_ModelMeshes(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        if self.layout_type in {'DEFAULT'}:
-            layout.label(text=item.name, translate=False, icon='OBJECT_DATA')
-        elif self.layout_type in {'COMPACT'}:
+        if self.layout_type in {"DEFAULT"}:
+            layout.label(text=item.name, translate=False, icon="OBJECT_DATA")
+        elif self.layout_type in {"COMPACT"}:
             pass
-        elif self.layout_type in {'GRID'}:
-            layout.alignment = 'CENTER'
+        elif self.layout_type in {"GRID"}:
+            layout.alignment = "CENTER"
             layout.label(text="", icon_value=icon)
 
     def draw_filter(self, context, layout):
-        layout.label(text="Use the arrows to sort", icon='INFO')
+        layout.label(text="Use the arrows to sort", icon="INFO")
 
     def filter_items(self, context, data, propname):
         # We will use the filtering to sort the mesh objects to match the rig order
@@ -82,7 +76,7 @@ class MMD_TOOLS_UL_ModelMeshes(UIList):
 
         name_dict = {}
         for i, obj in enumerate(objects):
-            if obj.type == 'MESH' and obj.mmd_type == 'NONE' and __is_child_of_armature(obj):
+            if obj.type == "MESH" and obj.mmd_type == "NONE" and __is_child_of_armature(obj):
                 flt_flags[i] = self.bitflag_filter_item
                 name_dict[obj.name] = i
 
@@ -92,37 +86,39 @@ class MMD_TOOLS_UL_ModelMeshes(UIList):
 
         return flt_flags, flt_neworder
 
+
 class MMDMeshSorter(_PanelBase, Panel):
-    bl_idname = 'OBJECT_PT_mmd_tools_meshes_sorter'
-    bl_label = 'Meshes Sorter'
-    bl_context = ''
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_idname = "OBJECT_PT_mmd_tools_meshes_sorter"
+    bl_label = "Meshes Sorter"
+    bl_context = ""
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
         active_obj = context.active_object
         root = Model.findRoot(active_obj)
         if root is None:
-            layout.label(text='Select a MMD Model')
+            layout.label(text="Select a MMD Model")
             return
 
         col = layout.column(align=True)
         row = col.row()
-        row.template_list("MMD_TOOLS_UL_ModelMeshes", "",
-                          SceneOp(context).id_scene, 'objects',
-                          root.mmd_root, "active_mesh_index")
+        row.template_list("MMD_TOOLS_UL_ModelMeshes", "", SceneOp(context).id_scene, "objects", root.mmd_root, "active_mesh_index")
         tb = row.column()
         tb1 = tb.column(align=True)
-        tb1.enabled = active_obj.type == 'MESH' and active_obj.mmd_type == 'NONE'
-        tb1.operator('mmd_tools.object_move', text='', icon=TRIA_UP_BAR).type = 'TOP'
-        tb1.operator('mmd_tools.object_move', text='', icon='TRIA_UP').type = 'UP'
-        tb1.operator('mmd_tools.object_move', text='', icon='TRIA_DOWN').type = 'DOWN'
-        tb1.operator('mmd_tools.object_move', text='', icon=TRIA_DOWN_BAR).type = 'BOTTOM'
+        tb1.enabled = active_obj.type == "MESH" and active_obj.mmd_type == "NONE"
+        tb1.operator("mmd_tools.object_move", text="", icon="TRIA_UP_BAR").type = "TOP"
+        tb1.operator("mmd_tools.object_move", text="", icon="TRIA_UP").type = "UP"
+        tb1.operator("mmd_tools.object_move", text="", icon="TRIA_DOWN").type = "DOWN"
+        tb1.operator("mmd_tools.object_move", text="", icon="TRIA_DOWN_BAR").type = "BOTTOM"
+
 
 class _DummyVertexGroup:
     index = None
+
     def __init__(self, index):
         self.index = index
+
 
 class MMD_TOOLS_UL_ModelBones(UIList):
     _IK_MAP = {}
@@ -153,7 +149,7 @@ class MMD_TOOLS_UL_ModelBones(UIList):
                 bone_count -= 1
                 continue
             for c in b.constraints:
-                if c.type == 'IK' and c.subtarget in pose_bones and c.subtarget not in cls._IK_BONES:
+                if c.type == "IK" and c.subtarget in pose_bones and c.subtarget not in cls._IK_BONES:
                     if not c.use_tail:
                         cls._IK_MAP.setdefault(hash(b), []).append(c.subtarget)
                         cls._IK_BONES[c.subtarget] = ik_target_fin[c.subtarget] = hash(b)
@@ -161,14 +157,14 @@ class MMD_TOOLS_UL_ModelBones(UIList):
                     else:
                         cls._IK_BONES[c.subtarget] = b.name
                         bone_chain = [b] + b.parent_recursive
-                    for l in bone_chain[:c.chain_count]:
+                    for l in bone_chain[: c.chain_count]:
                         cls._IK_MAP.setdefault(hash(l), []).append(c.subtarget)
-                if 'mmd_ik_target_custom' == c.name:
-                    ik_target_custom[getattr(c, 'subtarget', '')] = hash(b)
-                elif 'mmd_ik_target_override' == c.name and b.parent:
-                    if b.parent.name == getattr(c, 'subtarget', ''):
+                if "mmd_ik_target_custom" == c.name:
+                    ik_target_custom[getattr(c, "subtarget", "")] = hash(b)
+                elif "mmd_ik_target_override" == c.name and b.parent:
+                    if b.parent.name == getattr(c, "subtarget", ""):
                         for c in b.parent.constraints:
-                            if c.type == 'IK' and c.subtarget in pose_bones and c.subtarget not in ik_target_override and c.subtarget not in ik_target_custom:
+                            if c.type == "IK" and c.subtarget in pose_bones and c.subtarget not in ik_target_override and c.subtarget not in ik_target_custom:
                                 ik_target_override[c.subtarget] = hash(b)
 
         for k, v in ik_target_custom.items():
@@ -211,33 +207,33 @@ class MMD_TOOLS_UL_ModelBones(UIList):
         bone = pose_bones.get(bone_name, None)
         if not bone or bone.is_mmd_shadow_bone:
             layout.active = False
-            layout.label(text=bone_name, translate=False, icon='GROUP_BONE' if bone else 'MESH_DATA')
+            layout.label(text=bone_name, translate=False, icon="GROUP_BONE" if bone else "MESH_DATA")
             r = layout.row()
-            r.alignment = 'RIGHT'
+            r.alignment = "RIGHT"
             r.label(text=str(index))
         else:
-            row = _layout_split(layout, factor=0.45, align=False)
+            row = layout.split(factor=0.45, align=False)
             r0 = row.row()
-            r0.label(text=bone_name, translate=False, icon='POSE_HLT' if bone_name in cls._IK_BONES else 'BONE_DATA')
+            r0.label(text=bone_name, translate=False, icon="POSE_HLT" if bone_name in cls._IK_BONES else "BONE_DATA")
             r = r0.row()
-            r.alignment = 'RIGHT'
+            r.alignment = "RIGHT"
             r.label(text=str(index))
 
-            row_sub = _layout_split(row, factor=0.67, align=False)
+            row_sub = row.split(factor=0.67, align=False)
 
             mmd_bone = bone.mmd_bone
             count = len(pose_bones)
-            bone_transform_rank = index + mmd_bone.transform_order*count
+            bone_transform_rank = index + mmd_bone.transform_order * count
 
             r = row_sub.row()
             bone_parent = bone.parent
             if bone_parent:
                 bone_parent = bone_parent.name
                 idx = vertex_groups.get(bone_parent, _DummyVertexGroup).index
-                if idx is None or bone_transform_rank < (idx + pose_bones[bone_parent].mmd_bone.transform_order*count):
-                    r.label(text=str(idx), icon='ERROR')
+                if idx is None or bone_transform_rank < (idx + pose_bones[bone_parent].mmd_bone.transform_order * count):
+                    r.label(text=str(idx), icon="ERROR")
                 else:
-                    r.label(text=str(idx), icon='INFO' if index < idx else 'FILE_PARENT')
+                    r.label(text=str(idx), icon="INFO" if index < idx else "FILE_PARENT")
             else:
                 r.label()
 
@@ -245,76 +241,78 @@ class MMD_TOOLS_UL_ModelBones(UIList):
             if mmd_bone.has_additional_rotation:
                 append_bone = mmd_bone.additional_transform_bone
                 idx = vertex_groups.get(append_bone, _DummyVertexGroup).index
-                if idx is None or bone_transform_rank < (idx + pose_bones[append_bone].mmd_bone.transform_order*count):
+                if idx is None or bone_transform_rank < (idx + pose_bones[append_bone].mmd_bone.transform_order * count):
                     if append_bone:
-                        r.label(text=str(idx), icon='ERROR')
+                        r.label(text=str(idx), icon="ERROR")
                 else:
-                    r.label(text=str(idx), icon=ICON_APPEND_MOVE_ROT if mmd_bone.has_additional_location else ICON_APPEND_ROT)
+                    r.label(text=str(idx), icon="IPO_QUAD" if mmd_bone.has_additional_location else "IPO_EXPO")
             elif mmd_bone.has_additional_location:
                 append_bone = mmd_bone.additional_transform_bone
                 idx = vertex_groups.get(append_bone, _DummyVertexGroup).index
-                if idx is None or bone_transform_rank < (idx + pose_bones[append_bone].mmd_bone.transform_order*count):
+                if idx is None or bone_transform_rank < (idx + pose_bones[append_bone].mmd_bone.transform_order * count):
                     if append_bone:
-                        r.label(text=str(idx), icon='ERROR')
+                        r.label(text=str(idx), icon="ERROR")
                 else:
-                    r.label(text=str(idx), icon=ICON_APPEND_MOVE)
+                    r.label(text=str(idx), icon="IPO_LINEAR")
 
             for idx, b in sorted(((vertex_groups.get(b, _DummyVertexGroup).index, b) for b in cls._IK_MAP.get(hash(bone), ())), key=lambda i: i[0] or 0):
                 ik_bone = pose_bones[b]
-                is_ik_chain = (hash(bone) != cls._IK_BONES.get(b))
-                if idx is None or (is_ik_chain and bone_transform_rank > (idx + ik_bone.mmd_bone.transform_order*count)):
-                    r.prop(ik_bone, 'mmd_ik_toggle', text=str(idx), toggle=True, icon='ERROR')
+                is_ik_chain = hash(bone) != cls._IK_BONES.get(b)
+                if idx is None or (is_ik_chain and bone_transform_rank > (idx + ik_bone.mmd_bone.transform_order * count)):
+                    r.prop(ik_bone, "mmd_ik_toggle", text=str(idx), toggle=True, icon="ERROR")
                 elif b not in cls._IK_BONES:
-                    r.prop(ik_bone, 'mmd_ik_toggle', text=str(idx), toggle=True, icon='QUESTION')
+                    r.prop(ik_bone, "mmd_ik_toggle", text=str(idx), toggle=True, icon="QUESTION")
                 else:
-                    r.prop(ik_bone, 'mmd_ik_toggle', text=str(idx), toggle=True, icon='LINKED' if is_ik_chain else 'HOOK')
+                    r.prop(ik_bone, "mmd_ik_toggle", text=str(idx), toggle=True, icon="LINKED" if is_ik_chain else "HOOK")
 
             row = row_sub.row(align=True)
             if mmd_bone.transform_after_dynamics:
-                row.prop(mmd_bone, 'transform_after_dynamics', text='', toggle=True, icon='PHYSICS')
+                row.prop(mmd_bone, "transform_after_dynamics", text="", toggle=True, icon="PHYSICS")
             else:
-                row.prop(mmd_bone, 'transform_after_dynamics', text='', toggle=True)
-            row.prop(mmd_bone, 'transform_order', text='', slider=bool(mmd_bone.transform_order))
+                row.prop(mmd_bone, "transform_after_dynamics", text="", toggle=True)
+            row.prop(mmd_bone, "transform_order", text="", slider=bool(mmd_bone.transform_order))
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        if self.layout_type in {'DEFAULT'}:
+        if self.layout_type in {"DEFAULT"}:
             if self._DUMMY_VERTEX_GROUPS:
                 self._draw_bone_item(layout, item.name, data.bones, self._DUMMY_VERTEX_GROUPS, index)
             else:
                 self._draw_bone_item(layout, item.name, data.parent.pose.bones, data.vertex_groups, index)
-        elif self.layout_type in {'COMPACT'}:
+        elif self.layout_type in {"COMPACT"}:
             pass
-        elif self.layout_type in {'GRID'}:
-            layout.alignment = 'CENTER'
+        elif self.layout_type in {"GRID"}:
+            layout.alignment = "CENTER"
             layout.label(text="", icon_value=icon)
 
+
 class MMDBoneOrderMenu(bpy.types.Menu):
-    bl_idname = 'OBJECT_MT_mmd_tools_bone_order_menu'
-    bl_label = 'Bone Order Menu'
+    bl_idname = "OBJECT_MT_mmd_tools_bone_order_menu"
+    bl_label = "Bone Order Menu"
 
     def draw(self, _context):
         layout = self.layout
-        layout.operator('object.vertex_group_sort', text='Sort by Bone Hierarchy', icon='BONE_DATA').sort_type='BONE_HIERARCHY'
+        layout.operator("object.vertex_group_sort", text="Sort by Bone Hierarchy", icon="BONE_DATA").sort_type = "BONE_HIERARCHY"
         layout.separator()
-        layout.operator('mmd_tools.add_missing_vertex_groups_from_bones', icon='PRESET_NEW')
+        layout.operator("mmd_tools.add_missing_vertex_groups_from_bones", icon="PRESET_NEW")
+
 
 class MMDBoneOrder(_PanelBase, Panel):
-    bl_idname = 'OBJECT_PT_mmd_tools_bone_order'
-    bl_label = 'Bone Order'
-    bl_context = ''
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_idname = "OBJECT_PT_mmd_tools_bone_order"
+    bl_label = "Bone Order"
+    bl_context = ""
+    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
         active_obj = context.active_object
-        root = FnModel.find_root(active_obj)
+        root = FnModel.find_root_object(active_obj)
         if root is None:
-            layout.label(text='Select a MMD Model')
+            layout.label(text="Select a MMD Model")
             return
 
-        armature = FnModel.find_armature(root)
+        armature = FnModel.find_armature_object(root)
         if armature is None:
-            layout.label(text='The armature object of active MMD model can\'t be found', icon='ERROR')
+            layout.label(text="The armature object of active MMD model can't be found", icon="ERROR")
             return
 
         bone_order_mesh_object = FnModel.find_bone_order_mesh_object(root)
@@ -323,26 +321,22 @@ class MMDBoneOrder(_PanelBase, Panel):
         col = layout.column(align=True)
         row = col.row()
         if bone_order_mesh_object is None:
-            row.template_list("MMD_TOOLS_UL_ModelBones", "",
-                              armature.pose, 'bones',
-                              root.vertex_groups, 'active_index')
-            col.operator('mmd_tools.object_select', text='(%d) %s'%(bone_count, armature.name), icon='OUTLINER_OB_ARMATURE', emboss=False).name = armature.name
-            col.label(text='No mesh object with "mmd_bone_order_override" modifier', icon='ERROR')
+            row.template_list("MMD_TOOLS_UL_ModelBones", "", armature.pose, "bones", root.vertex_groups, "active_index")
+            col.operator("mmd_tools.object_select", text="(%d) %s" % (bone_count, armature.name), icon="OUTLINER_OB_ARMATURE", emboss=False).name = armature.name
+            col.label(text='No mesh object with "mmd_bone_order_override" modifier', icon="ERROR")
         else:
-            row.template_list("MMD_TOOLS_UL_ModelBones", "",
-                              bone_order_mesh_object, 'vertex_groups',
-                              bone_order_mesh_object.vertex_groups, 'active_index')
+            row.template_list("MMD_TOOLS_UL_ModelBones", "", bone_order_mesh_object, "vertex_groups", bone_order_mesh_object.vertex_groups, "active_index")
 
             tb = row.column()
             tb.enabled = bone_order_mesh_object == active_obj
             tb1 = tb.column(align=True)
-            tb1.menu('OBJECT_MT_mmd_tools_bone_order_menu', text='', icon='DOWNARROW_HLT')
+            tb1.menu("OBJECT_MT_mmd_tools_bone_order_menu", text="", icon="DOWNARROW_HLT")
             tb.separator()
             tb1 = tb.column(align=True)
-            tb1.operator('object.vertex_group_move', text='', icon='TRIA_UP').direction = 'UP'
-            tb1.operator('object.vertex_group_move', text='', icon='TRIA_DOWN').direction = 'DOWN'
+            tb1.operator("object.vertex_group_move", text="", icon="TRIA_UP").direction = "UP"
+            tb1.operator("object.vertex_group_move", text="", icon="TRIA_DOWN").direction = "DOWN"
 
             row = col.row()
-            row.operator('mmd_tools.object_select', text='(%d) %s'%(bone_count, armature.name), icon='OUTLINER_OB_ARMATURE', emboss=False).name = armature.name
-            row.label(icon='BACK')
-            row.operator('mmd_tools.object_select', text=bone_order_mesh_object.name, icon='OBJECT_DATA', emboss=False).name = bone_order_mesh_object.name
+            row.operator("mmd_tools.object_select", text="(%d) %s" % (bone_count, armature.name), icon="OUTLINER_OB_ARMATURE", emboss=False).name = armature.name
+            row.label(icon="BACK")
+            row.operator("mmd_tools.object_select", text=bone_order_mesh_object.name, icon="OBJECT_DATA", emboss=False).name = bone_order_mesh_object.name

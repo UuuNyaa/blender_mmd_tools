@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 MMD Tools authors
+# This file is part of MMD Tools.
 
 import csv
 import logging
@@ -7,156 +9,284 @@ import time
 import bpy
 
 jp_half_to_full_tuples = (
-    ('ｳﾞ', 'ヴ'), ('ｶﾞ', 'ガ'), ('ｷﾞ', 'ギ'), ('ｸﾞ', 'グ'), ('ｹﾞ', 'ゲ'),
-    ('ｺﾞ', 'ゴ'), ('ｻﾞ', 'ザ'), ('ｼﾞ', 'ジ'), ('ｽﾞ', 'ズ'), ('ｾﾞ', 'ゼ'),
-    ('ｿﾞ', 'ゾ'), ('ﾀﾞ', 'ダ'), ('ﾁﾞ', 'ヂ'), ('ﾂﾞ', 'ヅ'), ('ﾃﾞ', 'デ'),
-    ('ﾄﾞ', 'ド'), ('ﾊﾞ', 'バ'), ('ﾊﾟ', 'パ'), ('ﾋﾞ', 'ビ'), ('ﾋﾟ', 'ピ'),
-    ('ﾌﾞ', 'ブ'), ('ﾌﾟ', 'プ'), ('ﾍﾞ', 'ベ'), ('ﾍﾟ', 'ペ'), ('ﾎﾞ', 'ボ'),
-    ('ﾎﾟ', 'ポ'), ('｡', '。'), ('｢', '「'), ('｣', '」'), ('､', '、'),
-    ('･', '・'), ('ｦ', 'ヲ'), ('ｧ', 'ァ'), ('ｨ', 'ィ'), ('ｩ', 'ゥ'),
-    ('ｪ', 'ェ'), ('ｫ', 'ォ'), ('ｬ', 'ャ'), ('ｭ', 'ュ'), ('ｮ', 'ョ'),
-    ('ｯ', 'ッ'), ('ｰ', 'ー'), ('ｱ', 'ア'), ('ｲ', 'イ'), ('ｳ', 'ウ'),
-    ('ｴ', 'エ'), ('ｵ', 'オ'), ('ｶ', 'カ'), ('ｷ', 'キ'), ('ｸ', 'ク'),
-    ('ｹ', 'ケ'), ('ｺ', 'コ'), ('ｻ', 'サ'), ('ｼ', 'シ'), ('ｽ', 'ス'),
-    ('ｾ', 'セ'), ('ｿ', 'ソ'), ('ﾀ', 'タ'), ('ﾁ', 'チ'), ('ﾂ', 'ツ'),
-    ('ﾃ', 'テ'), ('ﾄ', 'ト'), ('ﾅ', 'ナ'), ('ﾆ', 'ニ'), ('ﾇ', 'ヌ'),
-    ('ﾈ', 'ネ'), ('ﾉ', 'ノ'), ('ﾊ', 'ハ'), ('ﾋ', 'ヒ'), ('ﾌ', 'フ'),
-    ('ﾍ', 'ヘ'), ('ﾎ', 'ホ'), ('ﾏ', 'マ'), ('ﾐ', 'ミ'), ('ﾑ', 'ム'),
-    ('ﾒ', 'メ'), ('ﾓ', 'モ'), ('ﾔ', 'ヤ'), ('ﾕ', 'ユ'), ('ﾖ', 'ヨ'),
-    ('ﾗ', 'ラ'), ('ﾘ', 'リ'), ('ﾙ', 'ル'), ('ﾚ', 'レ'), ('ﾛ', 'ロ'),
-    ('ﾜ', 'ワ'), ('ﾝ', 'ン'),
-    )
+    ("ｳﾞ", "ヴ"),
+    ("ｶﾞ", "ガ"),
+    ("ｷﾞ", "ギ"),
+    ("ｸﾞ", "グ"),
+    ("ｹﾞ", "ゲ"),
+    ("ｺﾞ", "ゴ"),
+    ("ｻﾞ", "ザ"),
+    ("ｼﾞ", "ジ"),
+    ("ｽﾞ", "ズ"),
+    ("ｾﾞ", "ゼ"),
+    ("ｿﾞ", "ゾ"),
+    ("ﾀﾞ", "ダ"),
+    ("ﾁﾞ", "ヂ"),
+    ("ﾂﾞ", "ヅ"),
+    ("ﾃﾞ", "デ"),
+    ("ﾄﾞ", "ド"),
+    ("ﾊﾞ", "バ"),
+    ("ﾊﾟ", "パ"),
+    ("ﾋﾞ", "ビ"),
+    ("ﾋﾟ", "ピ"),
+    ("ﾌﾞ", "ブ"),
+    ("ﾌﾟ", "プ"),
+    ("ﾍﾞ", "ベ"),
+    ("ﾍﾟ", "ペ"),
+    ("ﾎﾞ", "ボ"),
+    ("ﾎﾟ", "ポ"),
+    ("｡", "。"),
+    ("｢", "「"),
+    ("｣", "」"),
+    ("､", "、"),
+    ("･", "・"),
+    ("ｦ", "ヲ"),
+    ("ｧ", "ァ"),
+    ("ｨ", "ィ"),
+    ("ｩ", "ゥ"),
+    ("ｪ", "ェ"),
+    ("ｫ", "ォ"),
+    ("ｬ", "ャ"),
+    ("ｭ", "ュ"),
+    ("ｮ", "ョ"),
+    ("ｯ", "ッ"),
+    ("ｰ", "ー"),
+    ("ｱ", "ア"),
+    ("ｲ", "イ"),
+    ("ｳ", "ウ"),
+    ("ｴ", "エ"),
+    ("ｵ", "オ"),
+    ("ｶ", "カ"),
+    ("ｷ", "キ"),
+    ("ｸ", "ク"),
+    ("ｹ", "ケ"),
+    ("ｺ", "コ"),
+    ("ｻ", "サ"),
+    ("ｼ", "シ"),
+    ("ｽ", "ス"),
+    ("ｾ", "セ"),
+    ("ｿ", "ソ"),
+    ("ﾀ", "タ"),
+    ("ﾁ", "チ"),
+    ("ﾂ", "ツ"),
+    ("ﾃ", "テ"),
+    ("ﾄ", "ト"),
+    ("ﾅ", "ナ"),
+    ("ﾆ", "ニ"),
+    ("ﾇ", "ヌ"),
+    ("ﾈ", "ネ"),
+    ("ﾉ", "ノ"),
+    ("ﾊ", "ハ"),
+    ("ﾋ", "ヒ"),
+    ("ﾌ", "フ"),
+    ("ﾍ", "ヘ"),
+    ("ﾎ", "ホ"),
+    ("ﾏ", "マ"),
+    ("ﾐ", "ミ"),
+    ("ﾑ", "ム"),
+    ("ﾒ", "メ"),
+    ("ﾓ", "モ"),
+    ("ﾔ", "ヤ"),
+    ("ﾕ", "ユ"),
+    ("ﾖ", "ヨ"),
+    ("ﾗ", "ラ"),
+    ("ﾘ", "リ"),
+    ("ﾙ", "ル"),
+    ("ﾚ", "レ"),
+    ("ﾛ", "ロ"),
+    ("ﾜ", "ワ"),
+    ("ﾝ", "ン"),
+)
 
 jp_to_en_tuples = [
-  ('全ての親', 'ParentNode'),
-  ('操作中心', 'ControlNode'),               
-  ('センター', 'Center'),
-  ('ｾﾝﾀｰ', 'Center'),
-  ('グループ', 'Group'),
-  ('グルーブ', 'Groove'),
-  ('キャンセル', 'Cancel'),
-  ('上半身', 'UpperBody'),
-  ('下半身', 'LowerBody'),
-  ('手首', 'Wrist'),
-  ('足首', 'Ankle'),
-  ('首', 'Neck'),
-  ('頭', 'Head'),
-  ('顔', 'Face'),
-  ('下顎', 'Chin'),
-  ('下あご', 'Chin'),
-  ('あご', 'Jaw'),
-  ('顎', 'Jaw'),
-  ('両目', 'Eyes'),
-  ('目', 'Eye'),
-  ('眉', 'Eyebrow'),
-  ('舌', 'Tongue'),
-  ('涙', 'Tears'),
-  ('泣き', 'Cry'),
-  ('歯', 'Teeth'),
-  ('照れ', 'Blush'),
-  ('青ざめ', 'Pale'),
-  ('ガーン', 'Gloom'),
-  ('汗', 'Sweat'),
-  ('怒', 'Anger'),
-  ('感情', 'Emotion'),
-  ('符', 'Marks'),
-  ('暗い', 'Dark'),
-  ('腰', 'Waist'),
-  ('髪', 'Hair'),  
-  ('三つ編み', 'Braid'),
-  ('胸', 'Breast'),
-  ('乳', 'Boob'),
-  ('おっぱい', 'Tits'),
-  ('筋', 'Muscle'),
-  ('腹', 'Belly'),
-  ('鎖骨', 'Clavicle'),
-  ('肩', 'Shoulder'),
-  ('腕', 'Arm'),
-  ('うで', 'Arm'),
-  ('ひじ', 'Elbow'),
-  ('肘', 'Elbow'),
-  ('手', 'Hand'),
-  ('親指', 'Thumb'),
-  ('人指', 'IndexFinger'),
-  ('人差指', 'IndexFinger'),
-  ('中指', 'MiddleFinger'),
-  ('薬指', 'RingFinger'),
-  ('小指', 'LittleFinger'),  
-  ('足', 'Leg'),
-  ('ひざ', 'Knee'),  
-  ('つま', 'Toe'),
-  ('袖', 'Sleeve'),
-  ('新規', 'New'),
-  ('ボーン', 'Bone'),
-  ('捩', 'Twist'),
-  ('回転', 'Rotation'),
-  ('軸', 'Axis'),
-  ('ﾈｸﾀｲ', 'Necktie'),
-  ('ネクタイ', 'Necktie'),
-  ('ヘッドセット', 'Headset'),
-  ('飾り', 'Accessory'),
-  ('リボン', 'Ribbon'),
-  ('襟', 'Collar'),
-  ('紐', 'String'),
-  ('コード', 'Cord'),
-  ('イヤリング', 'Earring'),
-  ('メガネ', 'Eyeglasses'),
-  ('眼鏡', 'Glasses'),
-  ('帽子', 'Hat'),
-  ('ｽｶｰﾄ', 'Skirt'),
-  ('スカート', 'Skirt'),
-  ('パンツ', 'Pantsu'),
-  ('シャツ', 'Shirt'),
-  ('フリル', 'Frill'),
-  ('マフラー', 'Muffler'),
-  ('ﾏﾌﾗｰ', 'Muffler'),
-  ('服', 'Clothes'),
-  ('ブーツ', 'Boots'),
-  ('ねこみみ', 'CatEars'),
-  ('ジップ', 'Zip'),
-  ('ｼﾞｯﾌﾟ', 'Zip'),
-  ('ダミー', 'Dummy'),
-  ('ﾀﾞﾐｰ', 'Dummy'),
-  ('基', 'Category'),
-  ('あほ毛', 'Antenna'),
-  ('アホ毛', 'Antenna'),
-  ('モミアゲ', 'Sideburn'),
-  ('もみあげ', 'Sideburn'),
-  ('ツインテ', 'Twintail'),
-  ('おさげ', 'Pigtail'),
-  ('ひらひら', 'Flutter'),
-  ('調整', 'Adjustment'),
-  ('補助', 'Aux'),
-  ('右', 'Right'),
-  ('左', 'Left'),  
-  ('前', 'Front'),
-  ('後ろ', 'Behind'),
-  ('後', 'Back'),
-  ('横', 'Side'),
-  ('中', 'Middle'),
-  ('上', 'Upper'),
-  ('下', 'Lower'),
-  ('親', 'Parent'),  
-  ('先', 'Tip'),
-  ('パーツ', 'Part'),
-  ('光', 'Light'),
-  ('戻', 'Return'),
-  ('羽', 'Wing'),
-  ('根', 'Base'), # ideally 'Root' but to avoid confusion
-  ('毛', 'Strand'),
-  ('尾', 'Tail'),
-  ('尻', 'Butt'),
-  # full-width unicode forms I think: https://en.wikipedia.org/wiki/Halfwidth_and_fullwidth_forms
-  ('０', '0'), ('１', '1'), ('２', '2'), ('３', '3'), ('４', '4'), ('５', '5'), ('６', '6'), ('７', '7'), ('８', '8'), ('９', '9'),
-  ('ａ', 'a'), ('ｂ', 'b'), ('ｃ', 'c'), ('ｄ', 'd'), ('ｅ', 'e'), ('ｆ', 'f'), ('ｇ', 'g'), ('ｈ', 'h'), ('ｉ', 'i'), ('ｊ', 'j'),
-  ('ｋ', 'k'), ('ｌ', 'l'), ('ｍ', 'm'), ('ｎ', 'n'), ('ｏ', 'o'), ('ｐ', 'p'), ('ｑ', 'q'), ('ｒ', 'r'), ('ｓ', 's'), ('ｔ', 't'), 
-  ('ｕ', 'u'), ('ｖ', 'v'), ('ｗ', 'w'), ('ｘ', 'x'), ('ｙ', 'y'), ('ｚ', 'z'),
-  ('Ａ', 'A'), ('Ｂ', 'B'), ('Ｃ', 'C'), ('Ｄ', 'D'), ('Ｅ', 'E'), ('Ｆ', 'F'), ('Ｇ', 'G'), ('Ｈ', 'H'), ('Ｉ', 'I'), ('Ｊ', 'J'),
-  ('Ｋ', 'K'), ('Ｌ', 'L'), ('Ｍ', 'M'), ('Ｎ', 'N'), ('Ｏ', 'O'), ('Ｐ', 'P'), ('Ｑ', 'Q'), ('Ｒ', 'R'), ('Ｓ', 'S'), ('Ｔ', 'T'), 
-  ('Ｕ', 'U'), ('Ｖ', 'V'), ('Ｗ', 'W'), ('Ｘ', 'X'), ('Ｙ', 'Y'), ('Ｚ', 'Z'),
-  ('＋', '+'), ('－', '-'), ('＿', '_'), ('／', '/'),
-  ('.', '_'), # probably should be combined with the global 'use underscore' option
- ]
+    ("全ての親", "ParentNode"),
+    ("操作中心", "ControlNode"),
+    ("センター", "Center"),
+    ("ｾﾝﾀｰ", "Center"),
+    ("グループ", "Group"),
+    ("グルーブ", "Groove"),
+    ("キャンセル", "Cancel"),
+    ("上半身", "UpperBody"),
+    ("下半身", "LowerBody"),
+    ("手首", "Wrist"),
+    ("足首", "Ankle"),
+    ("首", "Neck"),
+    ("頭", "Head"),
+    ("顔", "Face"),
+    ("下顎", "Chin"),
+    ("下あご", "Chin"),
+    ("あご", "Jaw"),
+    ("顎", "Jaw"),
+    ("両目", "Eyes"),
+    ("目", "Eye"),
+    ("眉", "Eyebrow"),
+    ("舌", "Tongue"),
+    ("涙", "Tears"),
+    ("泣き", "Cry"),
+    ("歯", "Teeth"),
+    ("照れ", "Blush"),
+    ("青ざめ", "Pale"),
+    ("ガーン", "Gloom"),
+    ("汗", "Sweat"),
+    ("怒", "Anger"),
+    ("感情", "Emotion"),
+    ("符", "Marks"),
+    ("暗い", "Dark"),
+    ("腰", "Waist"),
+    ("髪", "Hair"),
+    ("三つ編み", "Braid"),
+    ("胸", "Breast"),
+    ("乳", "Boob"),
+    ("おっぱい", "Tits"),
+    ("筋", "Muscle"),
+    ("腹", "Belly"),
+    ("鎖骨", "Clavicle"),
+    ("肩", "Shoulder"),
+    ("腕", "Arm"),
+    ("うで", "Arm"),
+    ("ひじ", "Elbow"),
+    ("肘", "Elbow"),
+    ("手", "Hand"),
+    ("親指", "Thumb"),
+    ("人指", "IndexFinger"),
+    ("人差指", "IndexFinger"),
+    ("中指", "MiddleFinger"),
+    ("薬指", "RingFinger"),
+    ("小指", "LittleFinger"),
+    ("足", "Leg"),
+    ("ひざ", "Knee"),
+    ("つま", "Toe"),
+    ("袖", "Sleeve"),
+    ("新規", "New"),
+    ("ボーン", "Bone"),
+    ("捩", "Twist"),
+    ("回転", "Rotation"),
+    ("軸", "Axis"),
+    ("ﾈｸﾀｲ", "Necktie"),
+    ("ネクタイ", "Necktie"),
+    ("ヘッドセット", "Headset"),
+    ("飾り", "Accessory"),
+    ("リボン", "Ribbon"),
+    ("襟", "Collar"),
+    ("紐", "String"),
+    ("コード", "Cord"),
+    ("イヤリング", "Earring"),
+    ("メガネ", "Eyeglasses"),
+    ("眼鏡", "Glasses"),
+    ("帽子", "Hat"),
+    ("ｽｶｰﾄ", "Skirt"),
+    ("スカート", "Skirt"),
+    ("パンツ", "Pantsu"),
+    ("シャツ", "Shirt"),
+    ("フリル", "Frill"),
+    ("マフラー", "Muffler"),
+    ("ﾏﾌﾗｰ", "Muffler"),
+    ("服", "Clothes"),
+    ("ブーツ", "Boots"),
+    ("ねこみみ", "CatEars"),
+    ("ジップ", "Zip"),
+    ("ｼﾞｯﾌﾟ", "Zip"),
+    ("ダミー", "Dummy"),
+    ("ﾀﾞﾐｰ", "Dummy"),
+    ("基", "Category"),
+    ("あほ毛", "Antenna"),
+    ("アホ毛", "Antenna"),
+    ("モミアゲ", "Sideburn"),
+    ("もみあげ", "Sideburn"),
+    ("ツインテ", "Twintail"),
+    ("おさげ", "Pigtail"),
+    ("ひらひら", "Flutter"),
+    ("調整", "Adjustment"),
+    ("補助", "Aux"),
+    ("右", "Right"),
+    ("左", "Left"),
+    ("前", "Front"),
+    ("後ろ", "Behind"),
+    ("後", "Back"),
+    ("横", "Side"),
+    ("中", "Middle"),
+    ("上", "Upper"),
+    ("下", "Lower"),
+    ("親", "Parent"),
+    ("先", "Tip"),
+    ("パーツ", "Part"),
+    ("光", "Light"),
+    ("戻", "Return"),
+    ("羽", "Wing"),
+    ("根", "Base"),  # ideally 'Root' but to avoid confusion
+    ("毛", "Strand"),
+    ("尾", "Tail"),
+    ("尻", "Butt"),
+    # full-width unicode forms I think: https://en.wikipedia.org/wiki/Halfwidth_and_fullwidth_forms
+    ("０", "0"),
+    ("１", "1"),
+    ("２", "2"),
+    ("３", "3"),
+    ("４", "4"),
+    ("５", "5"),
+    ("６", "6"),
+    ("７", "7"),
+    ("８", "8"),
+    ("９", "9"),
+    ("ａ", "a"),
+    ("ｂ", "b"),
+    ("ｃ", "c"),
+    ("ｄ", "d"),
+    ("ｅ", "e"),
+    ("ｆ", "f"),
+    ("ｇ", "g"),
+    ("ｈ", "h"),
+    ("ｉ", "i"),
+    ("ｊ", "j"),
+    ("ｋ", "k"),
+    ("ｌ", "l"),
+    ("ｍ", "m"),
+    ("ｎ", "n"),
+    ("ｏ", "o"),
+    ("ｐ", "p"),
+    ("ｑ", "q"),
+    ("ｒ", "r"),
+    ("ｓ", "s"),
+    ("ｔ", "t"),
+    ("ｕ", "u"),
+    ("ｖ", "v"),
+    ("ｗ", "w"),
+    ("ｘ", "x"),
+    ("ｙ", "y"),
+    ("ｚ", "z"),
+    ("Ａ", "A"),
+    ("Ｂ", "B"),
+    ("Ｃ", "C"),
+    ("Ｄ", "D"),
+    ("Ｅ", "E"),
+    ("Ｆ", "F"),
+    ("Ｇ", "G"),
+    ("Ｈ", "H"),
+    ("Ｉ", "I"),
+    ("Ｊ", "J"),
+    ("Ｋ", "K"),
+    ("Ｌ", "L"),
+    ("Ｍ", "M"),
+    ("Ｎ", "N"),
+    ("Ｏ", "O"),
+    ("Ｐ", "P"),
+    ("Ｑ", "Q"),
+    ("Ｒ", "R"),
+    ("Ｓ", "S"),
+    ("Ｔ", "T"),
+    ("Ｕ", "U"),
+    ("Ｖ", "V"),
+    ("Ｗ", "W"),
+    ("Ｘ", "X"),
+    ("Ｙ", "Y"),
+    ("Ｚ", "Z"),
+    ("＋", "+"),
+    ("－", "-"),
+    ("＿", "_"),
+    ("／", "/"),
+    (".", "_"),  # probably should be combined with the global 'use underscore' option
+]
+
 
 def translateFromJp(name):
     for tuple in jp_to_en_tuples:
@@ -165,7 +295,7 @@ def translateFromJp(name):
     return name
 
 
-def getTranslator(csvfile='', keep_order=False):
+def getTranslator(csvfile="", keep_order=False):
     translator = MMDTranslator()
     if isinstance(csvfile, bpy.types.Text):
         translator.load_from_stream(csvfile)
@@ -181,15 +311,15 @@ def getTranslator(csvfile='', keep_order=False):
     translator.update()
     return translator
 
-class MMDTranslator:
 
+class MMDTranslator:
     def __init__(self):
         self.__csv_tuples = []
         self.__fails = {}
 
     @staticmethod
     def default_csv_filepath():
-        return __file__[:-3]+'.csv'
+        return __file__[:-3] + ".csv"
 
     @staticmethod
     def get_csv_text(text_name=None):
@@ -219,18 +349,19 @@ class MMDTranslator:
 
     def update(self):
         from collections import OrderedDict
+
         count_old = len(self.__csv_tuples)
         tuples_dict = OrderedDict((row[0], row) for row in self.__csv_tuples if len(row) >= 2 and row[0])
         self.__csv_tuples.clear()
         self.__csv_tuples.extend(tuples_dict.values())
-        logging.info(' - removed items:\t%d\t(of %d)', count_old-len(self.__csv_tuples), count_old)
+        logging.info(" - removed items:\t%d\t(of %d)", count_old - len(self.__csv_tuples), count_old)
 
     def half_to_full(self, name):
         return self.replace_from_tuples(name, jp_half_to_full_tuples)
 
     def is_translated(self, name):
         try:
-            name.encode('ascii', errors='strict')
+            name.encode("ascii", errors="strict")
         except UnicodeEncodeError:
             return False
         return True
@@ -245,42 +376,42 @@ class MMDTranslator:
         return name_new
 
     def save_fails(self, text_name=None):
-        text_name = text_name or (__name__+'.fails')
+        text_name = text_name or (__name__ + ".fails")
         txt = self.get_csv_text(text_name)
         fmt = '"%s","%s"'
         items = sorted(self.__fails.items(), key=lambda row: (-len(row[0]), row))
-        txt.from_string('\n'.join(fmt%(k, v) for k, v in items))
+        txt.from_string("\n".join(fmt % (k, v) for k, v in items))
         return txt
 
     def load_from_stream(self, csvfile=None):
         csvfile = csvfile or self.get_csv_text()
         if isinstance(csvfile, bpy.types.Text):
-            csvfile = (l.body+'\n' for l in csvfile.lines)
-        spamreader = csv.reader(csvfile, delimiter=',', skipinitialspace=True)
+            csvfile = (l.body + "\n" for l in csvfile.lines)
+        spamreader = csv.reader(csvfile, delimiter=",", skipinitialspace=True)
         csv_tuples = [tuple(row) for row in spamreader if len(row) >= 2]
         self.__csv_tuples = csv_tuples
-        logging.info(' - load items:\t%d', len(self.__csv_tuples))
+        logging.info(" - load items:\t%d", len(self.__csv_tuples))
 
     def save_to_stream(self, csvfile=None):
         csvfile = csvfile or self.get_csv_text()
-        lineterminator = '\r\n'
+        lineterminator = "\r\n"
         if isinstance(csvfile, bpy.types.Text):
             csvfile.clear()
-            lineterminator = '\n'
-        spamwriter = csv.writer(csvfile, delimiter=',', lineterminator=lineterminator, quoting=csv.QUOTE_ALL)
+            lineterminator = "\n"
+        spamwriter = csv.writer(csvfile, delimiter=",", lineterminator=lineterminator, quoting=csv.QUOTE_ALL)
         spamwriter.writerows(self.__csv_tuples)
-        logging.info(' - save items:\t%d', len(self.__csv_tuples))
+        logging.info(" - save items:\t%d", len(self.__csv_tuples))
 
     def load(self, filepath=None):
         filepath = filepath or self.default_csv_filepath()
-        logging.info('Loading csv file:\t%s', filepath)
-        with open(filepath, 'rt', encoding='utf-8', newline='') as csvfile:
+        logging.info("Loading csv file:\t%s", filepath)
+        with open(filepath, "rt", encoding="utf-8", newline="") as csvfile:
             self.load_from_stream(csvfile)
 
     def save(self, filepath=None):
         filepath = filepath or self.default_csv_filepath()
-        logging.info('Saving csv file:\t%s', filepath)
-        with open(filepath, 'wt', encoding='utf-8', newline='') as csvfile:
+        logging.info("Saving csv file:\t%s", filepath)
+        with open(filepath, "wt", encoding="utf-8", newline="") as csvfile:
             self.save_to_stream(csvfile)
 
 
@@ -295,32 +426,33 @@ class DictionaryEnum:
 
         DictionaryEnum.__items_ttl = time.time() + 5
         DictionaryEnum.__items_cache = items = []
-        if 'import' in prop.bl_rna.identifier:
-            items.append(('DISABLED', 'Disabled', '', 0))
+        if "import" in prop.bl_rna.identifier:
+            items.append(("DISABLED", "Disabled", "", 0))
 
-        items.append(('INTERNAL', 'Internal Dictionary', 'The dictionary defined in '+__name__, len(items)))
+        items.append(("INTERNAL", "Internal Dictionary", "The dictionary defined in " + __name__, len(items)))
 
-        for txt_name in sorted(x.name for x in bpy.data.texts if x.name.lower().endswith('.csv')):
-            items.append((txt_name, txt_name, "bpy.data.texts['%s']"%txt_name, 'TEXT', len(items)))
+        for txt_name in sorted(x.name for x in bpy.data.texts if x.name.lower().endswith(".csv")):
+            items.append((txt_name, txt_name, "bpy.data.texts['%s']" % txt_name, "TEXT", len(items)))
 
         import os
+
         from mmd_tools.bpyutils import addon_preferences
-        folder = addon_preferences('dictionary_folder', '')
+
+        folder = addon_preferences("dictionary_folder", "")
         if os.path.isdir(folder):
-            for filename in sorted(x for x in os.listdir(folder) if x.lower().endswith('.csv')):
+            for filename in sorted(x for x in os.listdir(folder) if x.lower().endswith(".csv")):
                 filepath = os.path.join(folder, filename)
                 if os.path.isfile(filepath):
-                    items.append((filepath, filename, filepath, 'FILE', len(items)))
+                    items.append((filepath, filename, filepath, "FILE", len(items)))
 
-        if 'dictionary' in prop:
-            prop['dictionary'] = min(prop['dictionary'], len(items)-1)
+        if "dictionary" in prop:
+            prop["dictionary"] = min(prop["dictionary"], len(items) - 1)
         return items
 
     @staticmethod
     def get_translator(dictionary):
-        if dictionary == 'DISABLED':
+        if dictionary == "DISABLED":
             return None
-        if dictionary == 'INTERNAL':
+        if dictionary == "INTERNAL":
             return getTranslator(dict(jp_to_en_tuples))
         return getTranslator(dictionary)
-

@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-import struct
-import os
+# Copyright 2014 MMD Tools authors
+# This file is part of MMD Tools.
+
 import logging
+import os
+import struct
+
 
 class InvalidFileError(Exception):
     pass

@@ -1,20 +1,23 @@
 # -*- coding: utf-8 -*-
+# Copyright 2015 MMD Tools authors
+# This file is part of MMD Tools.
 
 from bpy.types import Panel
 
 from mmd_tools.core.camera import MMDCamera
 
+
 class MMDCameraPanel(Panel):
-    bl_idname = 'OBJECT_PT_mmd_tools_camera'
-    bl_label = 'MMD Camera Tools'
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = 'data'
+    bl_idname = "OBJECT_PT_mmd_tools_camera"
+    bl_label = "MMD Camera Tools"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "data"
 
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        return obj and (obj.type == 'CAMERA' or MMDCamera.isMMDCamera(obj))
+        return obj and (obj.type == "CAMERA" or MMDCamera.isMMDCamera(obj))
 
     def draw(self, context):
         obj = context.active_object
@@ -29,13 +32,13 @@ class MMDCameraPanel(Panel):
             row = layout.row()
 
             c = row.column()
-            c.prop(empty, 'location')
-            c.prop(camera, 'location', index=1, text='Distance')
+            c.prop(empty, "location")
+            c.prop(camera, "location", index=1, text="Distance")
 
             c = row.column()
-            c.prop(empty, 'rotation_euler')
+            c.prop(empty, "rotation_euler")
 
-            layout.prop(empty.mmd_camera, 'angle')
-            layout.prop(empty.mmd_camera, 'is_perspective')
+            layout.prop(empty.mmd_camera, "angle")
+            layout.prop(empty.mmd_camera, "is_perspective")
         else:
-            layout.operator('mmd_tools.convert_to_mmd_camera', text='Convert')
+            layout.operator("mmd_tools.convert_to_mmd_camera", text="Convert")

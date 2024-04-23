@@ -1,23 +1,18 @@
 # -*- coding: utf-8 -*-
+# Copyright 2013 MMD Tools authors
+# This file is part of MMD Tools.
 
-from typing import Optional, Union
+from typing import List, Optional, Union
+
 import bpy
 
-matmul = (lambda a, b: a*b) if bpy.app.version < (2, 80, 0) else (lambda a, b: a.__matmul__(b))
 
-class Props: # For API changes of only name changed properties
-    if bpy.app.version < (2, 80, 0):
-        show_in_front = 'show_x_ray'
-        display_type = 'draw_type'
-        display_size = 'draw_size'
-        empty_display_type = 'empty_draw_type'
-        empty_display_size = 'empty_draw_size'
-    else:
-        show_in_front = 'show_in_front'
-        display_type = 'display_type'
-        display_size = 'display_size'
-        empty_display_type = 'empty_display_type'
-        empty_display_size = 'empty_display_size'
+class Props:  # For API changes of only name changed properties
+    show_in_front = "show_in_front"
+    display_type = "display_type"
+    display_size = "display_size"
+    empty_display_type = "empty_display_type"
+    empty_display_size = "empty_display_size"
 
 
 class __EditMode:
@@ -26,39 +21,40 @@ class __EditMode:
             raise ValueError
         self.__prevMode = obj.mode
         self.__obj = obj
-        self.__obj_select = obj.select
+        self.__obj_select = obj.select_get()
         with select_object(obj):
-            if obj.mode != 'EDIT':
-                bpy.ops.object.mode_set(mode='EDIT')
+            if obj.mode != "EDIT":
+                bpy.ops.object.mode_set(mode="EDIT")
 
     def __enter__(self):
         return self.__obj.data
 
     def __exit__(self, type, value, traceback):
-        if self.__prevMode == 'EDIT':
-            bpy.ops.object.mode_set(mode='OBJECT') # update edited data
+        if self.__prevMode == "EDIT":
+            bpy.ops.object.mode_set(mode="OBJECT")  # update edited data
         bpy.ops.object.mode_set(mode=self.__prevMode)
-        self.__obj.select = self.__obj_select
+        self.__obj.select_set(self.__obj_select)
+
 
 class __SelectObjects:
     def __init__(self, active_object, selected_objects=[]):
         if not isinstance(active_object, bpy.types.Object):
             raise ValueError
         try:
-            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.mode_set(mode="OBJECT")
         except Exception:
             pass
 
         for i in bpy.context.selected_objects:
-            i.select = False
+            i.select_set(False)
 
         self.__active_object = active_object
-        self.__selected_objects = tuple(set(selected_objects)|set([active_object]))
+        self.__selected_objects = tuple(set(selected_objects) | set([active_object]))
 
         self.__hides = []
         scene = SceneOp(bpy.context)
         for i in self.__selected_objects:
-            self.__hides.append(i.hide)
+            self.__hides.append(i.hide_get())
             scene.select_object(i)
         scene.active_object = active_object
 
@@ -67,7 +63,8 @@ class __SelectObjects:
 
     def __exit__(self, type, value, traceback):
         for i, j in zip(self.__selected_objects, self.__hides):
-            i.hide = j
+            i.hide_set(j)
+
 
 def find_user_layer_collection(target_object: bpy.types.Object) -> Optional[bpy.types.LayerCollection]:
     context: bpy.types.Context = bpy.context
@@ -90,8 +87,9 @@ def find_user_layer_collection(target_object: bpy.types.Object) -> Optional[bpy.
         found = find_layer_collection_by_name(scene_layer_collection, user_collection.name)
         if found is not None:
             return found
-    
+
     return None
+
 
 class __ActivateLayerCollection:
     def __init__(self, target_layer_collection: Optional[bpy.types.LayerCollection]):
@@ -107,235 +105,220 @@ class __ActivateLayerCollection:
         if bpy.context.view_layer.active_layer_collection.name != self.__original_layer_collection.name:
             bpy.context.view_layer.active_layer_collection = self.__original_layer_collection
 
+
 def addon_preferences(attrname, default=None):
-    if hasattr(bpy.context, 'preferences'):
-        addon = bpy.context.preferences.addons.get(__package__, None)
-    else:
-        addon = bpy.context.user_preferences.addons.get(__package__, None)
+    addon = bpy.context.preferences.addons.get(__package__, None)
     return getattr(addon.preferences, attrname, default) if addon else default
+
 
 def setParent(obj, parent):
     with select_object(parent, objects=[parent, obj]):
-        bpy.ops.object.parent_set(type='OBJECT', xmirror=False, keep_transform=False)
+        bpy.ops.object.parent_set(type="OBJECT", xmirror=False, keep_transform=False)
+
 
 def setParentToBone(obj, parent, bone_name):
     with select_object(parent, objects=[parent, obj]):
-        bpy.ops.object.mode_set(mode='POSE')
+        bpy.ops.object.mode_set(mode="POSE")
         parent.data.bones.active = parent.data.bones[bone_name]
-        bpy.ops.object.parent_set(type='BONE', xmirror=False, keep_transform=False)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.parent_set(type="BONE", xmirror=False, keep_transform=False)
+        bpy.ops.object.mode_set(mode="OBJECT")
+
 
 def edit_object(obj):
-    """ Set the object interaction mode to 'EDIT'
+    """Set the object interaction mode to 'EDIT'
 
-     It is recommended to use 'edit_object' with 'with' statement like the following code.
+    It is recommended to use 'edit_object' with 'with' statement like the following code.
 
-        with edit_object:
-            some functions...
+       with edit_object:
+           some functions...
     """
     return __EditMode(obj)
 
+
 def select_object(obj, objects=[]):
-    """ Select objects.
+    """Select objects.
 
-     It is recommended to use 'select_object' with 'with' statement like the following code.
-     This function can select "hidden" objects safely.
+    It is recommended to use 'select_object' with 'with' statement like the following code.
+    This function can select "hidden" objects safely.
 
-        with select_object(obj):
-            some functions...
+       with select_object(obj):
+           some functions...
     """
+    # TODO: reimplement with bpy.context.temp_override
     return __SelectObjects(obj, objects)
 
+
+# TODO: change method name to ...override
 def activate_layer_collection(target: Union[bpy.types.Object, bpy.types.LayerCollection, None]):
-    if isinstance(target,  bpy.types.Object):
+    if isinstance(target, bpy.types.Object):
         layer_collection = find_user_layer_collection(target)
-    elif isinstance(target,  bpy.types.LayerCollection):
+    elif isinstance(target, bpy.types.LayerCollection):
         layer_collection = target
     else:
         layer_collection = None
 
     return __ActivateLayerCollection(layer_collection)
 
+
 def duplicateObject(obj, total_len):
-    for i in bpy.context.selected_objects:
-        i.select = False
-    obj.select = True
-    assert(len(bpy.context.selected_objects) == 1)
-    assert(bpy.context.selected_objects[0] == obj)
-    last_selected = objs = [obj]
-    while len(objs) < total_len:
-        bpy.ops.object.duplicate()
-        objs.extend(bpy.context.selected_objects)
-        remain = total_len - len(objs) - len(bpy.context.selected_objects)
-        if remain < 0:
-            last_selected = bpy.context.selected_objects
-            for i in range(-remain):
-                last_selected[i].select = False
-        else:
-            for i in range(min(remain, len(last_selected))):
-                last_selected[i].select = True
-        last_selected = bpy.context.selected_objects
-    assert(len(objs) == total_len)
-    return objs
+    return FnContext.duplicate_object(bpy.context, obj, total_len)
+
 
 def makeCapsuleBak(segment=16, ring_count=8, radius=1.0, height=1.0, target_scene=None):
     import math
+
     target_scene = SceneOp(target_scene)
-    mesh = bpy.data.meshes.new(name='Capsule')
-    meshObj = bpy.data.objects.new(name='Capsule', object_data=mesh)
+    mesh = bpy.data.meshes.new(name="Capsule")
+    meshObj = bpy.data.objects.new(name="Capsule", object_data=mesh)
     vertices = []
-    top = (0, 0, height/2+radius)
+    top = (0, 0, height / 2 + radius)
     vertices.append(top)
 
-    f = lambda i: radius*i/ring_count
+    f = lambda i: radius * i / ring_count
     for i in range(ring_count, 0, -1):
-        z = f(i-1)
+        z = f(i - 1)
         t = math.sqrt(radius**2 - z**2)
         for j in range(segment):
-            theta = 2*math.pi/segment*j
+            theta = 2 * math.pi / segment * j
             x = t * math.sin(-theta)
             y = t * math.cos(-theta)
-            vertices.append((x,y,z+height/2))
+            vertices.append((x, y, z + height / 2))
 
     for i in range(ring_count):
         z = -f(i)
         t = math.sqrt(radius**2 - z**2)
         for j in range(segment):
-            theta = 2*math.pi/segment*j
+            theta = 2 * math.pi / segment * j
             x = t * math.sin(-theta)
             y = t * math.cos(-theta)
-            vertices.append((x,y,z-height/2))
+            vertices.append((x, y, z - height / 2))
 
-    bottom = (0, 0, -(height/2+radius))
+    bottom = (0, 0, -(height / 2 + radius))
     vertices.append(bottom)
 
     faces = []
     for i in range(1, segment):
-        faces.append([0, i, i+1])
+        faces.append([0, i, i + 1])
     faces.append([0, segment, 1])
     offset = segment + 1
-    for i in range(ring_count*2-1):
-        for j in range(segment-1):
+    for i in range(ring_count * 2 - 1):
+        for j in range(segment - 1):
             t = offset + j
-            faces.append([t-segment, t, t+1, t-segment+1])
-        faces.append([offset-1, offset+segment-1, offset, offset-segment])
+            faces.append([t - segment, t, t + 1, t - segment + 1])
+        faces.append([offset - 1, offset + segment - 1, offset, offset - segment])
         offset += segment
-    for i in range(segment-1):
+    for i in range(segment - 1):
         t = offset + i
-        faces.append([t-segment, offset, t-segment+1])
-    faces.append([offset-1, offset, offset-segment])
+        faces.append([t - segment, offset, t - segment + 1])
+    faces.append([offset - 1, offset, offset - segment])
 
     mesh.from_pydata(vertices, [], faces)
     target_scene.link_object(meshObj)
     return meshObj
 
-def createObject(name='Object', object_data=None, target_scene=None):
-    target_scene = SceneOp(target_scene)
-    obj = bpy.data.objects.new(name=name, object_data=object_data)
-    target_scene.link_object(obj)
-    target_scene.active_object = obj
-    return obj
+
+def createObject(name="Object", object_data=None, target_scene=None):
+    context = FnContext.ensure_context(target_scene)
+    return FnContext.set_active_object(context, FnContext.new_and_link_object(context, name, object_data))
+
 
 def makeSphere(segment=8, ring_count=5, radius=1.0, target_object=None):
     import bmesh
+
     if target_object is None:
-        target_object = createObject(name='Sphere')
+        target_object = createObject(name="Sphere")
 
     mesh = target_object.data
     bm = bmesh.new()
-    if bpy.app.version >= (3, 0, 0):
-        bmesh.ops.create_uvsphere(
-            bm,
-            u_segments=segment,
-            v_segments=ring_count,
-            radius=radius,
-            )
-    else:
-        # SUPPORT_UNTIL: 3.3 LTS
-        bmesh.ops.create_uvsphere(
-            bm,
-            u_segments=segment,
-            v_segments=ring_count,
-            diameter=radius,
-            )
+    bmesh.ops.create_uvsphere(
+        bm,
+        u_segments=segment,
+        v_segments=ring_count,
+        radius=radius,
+    )
     for f in bm.faces:
         f.smooth = True
     bm.to_mesh(mesh)
     bm.free()
     return target_object
 
-def makeBox(size=(1,1,1), target_object=None):
+
+def makeBox(size=(1, 1, 1), target_object=None):
     import bmesh
     from mathutils import Matrix
+
     if target_object is None:
-        target_object = createObject(name='Box')
+        target_object = createObject(name="Box")
 
     mesh = target_object.data
     bm = bmesh.new()
     bmesh.ops.create_cube(
         bm,
         size=2,
-        matrix=Matrix([[size[0],0,0,0], [0,size[1],0,0], [0,0,size[2],0], [0,0,0,1]]),
-        )
+        matrix=Matrix([[size[0], 0, 0, 0], [0, size[1], 0, 0], [0, 0, size[2], 0], [0, 0, 0, 1]]),
+    )
     for f in bm.faces:
         f.smooth = True
     bm.to_mesh(mesh)
     bm.free()
     return target_object
 
+
 def makeCapsule(segment=8, ring_count=2, radius=1.0, height=1.0, target_object=None):
-    import bmesh
     import math
+
+    import bmesh
+
     if target_object is None:
-        target_object = createObject(name='Capsule')
+        target_object = createObject(name="Capsule")
     height = max(height, 1e-3)
 
     mesh = target_object.data
     bm = bmesh.new()
     verts = bm.verts
-    top = (0, 0, height/2+radius)
+    top = (0, 0, height / 2 + radius)
     verts.new(top)
 
-    #f = lambda i: radius*i/ring_count
-    f = lambda i: radius*math.sin(0.5*math.pi*i/ring_count)
+    # f = lambda i: radius*i/ring_count
+    f = lambda i: radius * math.sin(0.5 * math.pi * i / ring_count)
     for i in range(ring_count, 0, -1):
-        z = f(i-1)
+        z = f(i - 1)
         t = math.sqrt(radius**2 - z**2)
         for j in range(segment):
-            theta = 2*math.pi/segment*j
+            theta = 2 * math.pi / segment * j
             x = t * math.sin(-theta)
             y = t * math.cos(-theta)
-            verts.new((x,y,z+height/2))
+            verts.new((x, y, z + height / 2))
 
     for i in range(ring_count):
         z = -f(i)
         t = math.sqrt(radius**2 - z**2)
         for j in range(segment):
-            theta = 2*math.pi/segment*j
+            theta = 2 * math.pi / segment * j
             x = t * math.sin(-theta)
             y = t * math.cos(-theta)
-            verts.new((x,y,z-height/2))
+            verts.new((x, y, z - height / 2))
 
-    bottom = (0, 0, -(height/2+radius))
+    bottom = (0, 0, -(height / 2 + radius))
     verts.new(bottom)
-    if hasattr(verts, 'ensure_lookup_table'):
+    if hasattr(verts, "ensure_lookup_table"):
         verts.ensure_lookup_table()
 
     faces = bm.faces
     for i in range(1, segment):
-        faces.new([verts[x] for x in (0, i, i+1)])
+        faces.new([verts[x] for x in (0, i, i + 1)])
     faces.new([verts[x] for x in (0, segment, 1)])
     offset = segment + 1
-    for i in range(ring_count*2-1):
-        for j in range(segment-1):
+    for i in range(ring_count * 2 - 1):
+        for j in range(segment - 1):
             t = offset + j
-            faces.new([verts[x] for x in (t-segment, t, t+1, t-segment+1)])
-        faces.new([verts[x] for x in (offset-1, offset+segment-1, offset, offset-segment)])
+            faces.new([verts[x] for x in (t - segment, t, t + 1, t - segment + 1)])
+        faces.new([verts[x] for x in (offset - 1, offset + segment - 1, offset, offset - segment)])
         offset += segment
-    for i in range(segment-1):
+    for i in range(segment - 1):
         t = offset + i
-        faces.new([verts[x] for x in (t-segment, offset, t-segment+1)])
-    faces.new([verts[x] for x in (offset-1, offset, offset-segment)])
+        faces.new([verts[x] for x in (t - segment, offset, t - segment + 1)])
+    faces.new([verts[x] for x in (offset - 1, offset, offset - segment)])
 
     for f in bm.faces:
         f.smooth = True
@@ -346,185 +329,232 @@ def makeCapsule(segment=8, ring_count=2, radius=1.0, height=1.0, target_object=N
 
 
 class ObjectOp:
-
     def __init__(self, obj):
         self.__obj = obj
 
     def __clean_drivers(self, key):
-        for d in getattr(key.id_data.animation_data, 'drivers', ()):
+        for d in getattr(key.id_data.animation_data, "drivers", ()):
             if d.data_path.startswith(key.path_from_id()):
                 key.id_data.driver_remove(d.data_path, -1)
 
-    if bpy.app.version < (2, 75, 0):
-        def shape_key_remove(self, key):
-            obj = self.__obj
-            assert(key.id_data == obj.data.shape_keys)
-            key_blocks = key.id_data.key_blocks
-            relative_key_map = {k.name:getattr(k.relative_key, 'name', '') for k in key_blocks}
-            last_index, obj.active_shape_key_index = obj.active_shape_key_index, key_blocks.find(key.name)
-            if last_index >= obj.active_shape_key_index:
-                last_index = max(0, last_index-1)
-            bpy.context.scene.objects.active, last = obj, bpy.context.scene.objects.active
-            self.__clean_drivers(key)
-            bpy.ops.object.shape_key_remove()
-            bpy.context.scene.objects.active = last
-            for k in key_blocks:
-                k.relative_key = key_blocks.get(relative_key_map[k.name], key_blocks[0])
-            obj.active_shape_key_index = min(last_index, len(key_blocks)-1)
-    else:
-        def shape_key_remove(self, key):
-            obj = self.__obj
-            assert(key.id_data == obj.data.shape_keys)
-            key_blocks = key.id_data.key_blocks
-            last_index = obj.active_shape_key_index
-            if last_index >= key_blocks.find(key.name):
-                last_index = max(0, last_index-1)
-            self.__clean_drivers(key)
-            obj.shape_key_remove(key)
-            obj.active_shape_key_index = min(last_index, len(key_blocks)-1)
+    def shape_key_remove(self, key):
+        obj = self.__obj
+        assert key.id_data == obj.data.shape_keys
+        key_blocks = key.id_data.key_blocks
+        last_index = obj.active_shape_key_index
+        if last_index >= key_blocks.find(key.name):
+            last_index = max(0, last_index - 1)
+        self.__clean_drivers(key)
+        obj.shape_key_remove(key)
+        obj.active_shape_key_index = min(last_index, len(key_blocks) - 1)
+
 
 class TransformConstraintOp:
-
-    __MIN_MAX_MAP = {} if bpy.app.version < (2, 71, 0) else {'ROTATION':'_rot', 'SCALE':'_scale'}
+    __MIN_MAX_MAP = {"ROTATION": "_rot", "SCALE": "_scale"}
 
     @staticmethod
     def create(constraints, name, map_type):
         c = constraints.get(name, None)
-        if c and c.type != 'TRANSFORM':
+        if c and c.type != "TRANSFORM":
             constraints.remove(c)
             c = None
         if c is None:
-            c = constraints.new('TRANSFORM')
+            c = constraints.new("TRANSFORM")
             c.name = name
         c.use_motion_extrapolate = True
-        c.target_space = c.owner_space = 'LOCAL'
+        c.target_space = c.owner_space = "LOCAL"
         c.map_from = c.map_to = map_type
-        c.map_to_x_from = 'X'
-        c.map_to_y_from = 'Y'
-        c.map_to_z_from = 'Z'
+        c.map_to_x_from = "X"
+        c.map_to_y_from = "Y"
+        c.map_to_z_from = "Z"
         c.influence = 1
         return c
 
     @classmethod
-    def min_max_attributes(cls, map_type, name_id=''):
+    def min_max_attributes(cls, map_type, name_id=""):
         key = (map_type, name_id)
         ret = cls.__MIN_MAX_MAP.get(key, None)
         if ret is None:
-            defaults = (i+j+k for i in ('from_', 'to_') for j in ('min_', 'max_') for k in 'xyz')
-            extension = cls.__MIN_MAX_MAP.get(map_type, '')
-            ret = cls.__MIN_MAX_MAP[key] = tuple(n+extension for n in defaults if name_id in n)
+            defaults = (i + j + k for i in ("from_", "to_") for j in ("min_", "max_") for k in "xyz")
+            extension = cls.__MIN_MAX_MAP.get(map_type, "")
+            ret = cls.__MIN_MAX_MAP[key] = tuple(n + extension for n in defaults if name_id in n)
         return ret
 
     @classmethod
     def update_min_max(cls, constraint, value, influence=1):
         c = constraint
-        if not c or c.type != 'TRANSFORM':
+        if not c or c.type != "TRANSFORM":
             return
 
-        for attr in cls.min_max_attributes(c.map_from, 'from_min'):
+        for attr in cls.min_max_attributes(c.map_from, "from_min"):
             setattr(c, attr, -value)
-        for attr in cls.min_max_attributes(c.map_from, 'from_max'):
+        for attr in cls.min_max_attributes(c.map_from, "from_max"):
             setattr(c, attr, value)
 
         if influence is None:
             return
 
-        for attr in cls.min_max_attributes(c.map_to, 'to_min'):
-            setattr(c, attr, -value*influence)
-        for attr in cls.min_max_attributes(c.map_to, 'to_max'):
-            setattr(c, attr, value*influence)
+        for attr in cls.min_max_attributes(c.map_to, "to_min"):
+            setattr(c, attr, -value * influence)
+        for attr in cls.min_max_attributes(c.map_to, "to_max"):
+            setattr(c, attr, value * influence)
 
-if bpy.app.version < (2, 80, 0):
-    class SceneOp:
-        def __init__(self, context=None):
-            self.__context = context or bpy.context
-            self.__scene = self.__context.scene
 
-        def __ensure_selectable(self, obj):
-            obj.hide = obj.hide_select = False
-            if obj not in self.__context.selectable_objects:
-                selected_objects = self.__context.selected_objects
-                self.__scene.layers[next(i for i, enabled in enumerate(obj.layers) if enabled)] = True
-                if len(self.__context.selected_objects) != len(selected_objects):
-                    for i in self.__context.selected_objects:
-                        if i not in selected_objects:
-                            i.select = False
+class SceneOp:
+    def __init__(self, context=None):
+        self.__context = context or bpy.context
+        self.__scene = self.__context.scene
+        self.__collection = self.__context.collection
+        self.__view_layer = self.__context.view_layer
 
-        def select_object(self, obj):
-            self.__ensure_selectable(obj)
-            obj.select = True
+    def __ensure_selectable(self, obj):
+        obj.hide_viewport = obj.hide_select = False
+        obj.hide_set(False)
+        if obj not in self.__context.selectable_objects:
 
-        def link_object(self, obj):
-            self.__scene.objects.link(obj)
+            def __unhide(lc):
+                lc.hide_viewport = lc.collection.hide_viewport = lc.collection.hide_select = False
+                return True
 
-        @property
-        def active_object(self):
-            return self.__scene.objects.active
-
-        @active_object.setter
-        def active_object(self, obj):
-            self.select_object(obj)
-            self.__scene.objects.active = obj
-
-        @property
-        def id_scene(self):
-            return self.__scene
-
-        @property
-        def id_objects(self):
-            return self.__scene.objects
-else:
-    class SceneOp:
-        def __init__(self, context=None):
-            self.__context = context or bpy.context
-            self.__scene = self.__context.scene
-            self.__collection = self.__context.collection
-            self.__view_layer = self.__context.view_layer
-
-        def __ensure_selectable(self, obj):
-            obj.hide_viewport = obj.hide_select = False
-            obj.hide_set(False)
-            if obj not in self.__context.selectable_objects:
-                def __unhide(lc):
-                    lc.hide_viewport = lc.collection.hide_viewport = lc.collection.hide_select = False
+            def __layer_check(layer_collection):
+                for lc in layer_collection.children:
+                    if __layer_check(lc):
+                        return __unhide(lc)
+                if obj in layer_collection.collection.objects.values():
+                    if layer_collection.exclude:
+                        layer_collection.exclude = False
                     return True
-                def __layer_check(layer_collection):
-                    for lc in layer_collection.children:
-                        if __layer_check(lc):
-                            return __unhide(lc)
-                    if obj in layer_collection.collection.objects.values():
-                        if layer_collection.exclude:
-                            layer_collection.exclude = False
+                return False
+
+            selected_objects = self.__context.selected_objects
+            __layer_check(self.__view_layer.layer_collection)
+            if len(self.__context.selected_objects) != len(selected_objects):
+                for i in self.__context.selected_objects:
+                    if i not in selected_objects:
+                        i.select_set(False)
+
+    def select_object(self, obj):
+        self.__ensure_selectable(obj)
+        obj.select_set(True)
+
+    def link_object(self, obj):
+        self.__collection.objects.link(obj)
+
+    @property
+    def active_object(self):
+        return self.__view_layer.objects.active
+
+    @active_object.setter
+    def active_object(self, obj):
+        self.select_object(obj)
+        self.__view_layer.objects.active = obj
+
+    @property
+    def id_scene(self):
+        return self.__scene
+
+    @property
+    def id_objects(self):
+        return self.__scene.objects
+
+
+class FnContext:
+    def __init__(self):
+        raise NotImplementedError("This class is not expected to be instantiated.")
+
+    @staticmethod
+    def ensure_context(context: Optional[bpy.types.Context] = None) -> bpy.types.Context:
+        return context or bpy.context
+
+    @staticmethod
+    def get_active_object(context: bpy.types.Context) -> Optional[bpy.types.Object]:
+        return context.active_object
+
+    @staticmethod
+    def set_active_object(context: bpy.types.Context, obj: bpy.types.Object) -> bpy.types.Object:
+        context.view_layer.objects.active = obj
+        return obj
+
+    @staticmethod
+    def get_scene_objects(context: bpy.types.Context) -> bpy.types.SceneObjects:
+        return context.scene.objects
+
+    @staticmethod
+    def ensure_selectable(context: bpy.types.Context, obj: bpy.types.Object) -> bpy.types.Object:
+        obj.hide_viewport = False
+        obj.hide_select = False
+        obj.hide_set(False)
+
+        if obj not in context.selectable_objects:
+
+            def __layer_check(layer_collection: bpy.types.LayerCollection) -> bool:
+                for lc in layer_collection.children:
+                    if __layer_check(lc):
+                        lc.hide_viewport = False
+                        lc.collection.hide_viewport = False
+                        lc.collection.hide_select = False
                         return True
-                    return False
-                selected_objects = self.__context.selected_objects
-                __layer_check(self.__view_layer.layer_collection)
-                if len(self.__context.selected_objects) != len(selected_objects):
-                    for i in self.__context.selected_objects:
-                        if i not in selected_objects:
-                            i.select_set(False)
+                if obj in layer_collection.collection.objects.values():
+                    if layer_collection.exclude:
+                        layer_collection.exclude = False
+                    return True
+                return False
 
-        def select_object(self, obj):
-            self.__ensure_selectable(obj)
-            obj.select_set(True)
+            selected_objects = context.selected_objects
+            __layer_check(context.view_layer.layer_collection)
+            if len(context.selected_objects) != len(selected_objects):
+                for i in context.selected_objects:
+                    if i not in selected_objects:
+                        i.select_set(False)
+        return obj
 
-        def link_object(self, obj):
-            self.__collection.objects.link(obj)
+    @staticmethod
+    def select_object(context: bpy.types.Context, obj: bpy.types.Object) -> bpy.types.Object:
+        FnContext.ensure_selectable(context, obj).select_set(True)
+        return obj
 
-        @property
-        def active_object(self):
-            return self.__view_layer.objects.active
+    @staticmethod
+    def select_single_object(context: bpy.types.Context, obj: bpy.types.Object) -> bpy.types.Object:
+        for i in context.selected_objects:
+            i.select_set(False)
+        return FnContext.select_object(context, obj)
 
-        @active_object.setter
-        def active_object(self, obj):
-            self.select_object(obj)
-            self.__view_layer.objects.active = obj
+    @staticmethod
+    def link_object(context: bpy.types.Context, obj: bpy.types.Object) -> bpy.types.Object:
+        context.collection.objects.link(obj)
+        return obj
 
-        @property
-        def id_scene(self):
-            return self.__scene
+    @staticmethod
+    def new_and_link_object(context: bpy.types.Context, name: str, object_data: Optional[bpy.types.ID]) -> bpy.types.Object:
+        return FnContext.link_object(context, bpy.data.objects.new(name=name, object_data=object_data))
 
-        @property
-        def id_objects(self):
-            return self.__scene.objects
-
+    @staticmethod
+    def duplicate_object(context: bpy.types.Context, object_to_duplicate: bpy.types.Object, target_count: int) -> List[bpy.types.Object]:
+        """Duplicate object
+        Args:
+            context (bpy.types.Context): context
+            obj (bpy.types.Object): object to duplicate
+            target_count (int): target count of duplicated objects
+        Returns:
+            List[bpy.types.Object]: duplicated objects
+        """
+        for o in context.selected_objects:
+            o.select_set(False)
+        object_to_duplicate.select_set(True)
+        assert len(context.selected_objects) == 1
+        assert context.selected_objects[0] == object_to_duplicate
+        last_selected_objects = result_objects = [object_to_duplicate]
+        while len(result_objects) < target_count:
+            bpy.ops.object.duplicate()
+            result_objects.extend(context.selected_objects)
+            remain = target_count - len(result_objects) - len(context.selected_objects)
+            if remain < 0:
+                last_selected_objects = context.selected_objects
+                for i in range(-remain):
+                    last_selected_objects[i].select_set(False)
+            else:
+                for i in range(min(remain, len(last_selected_objects))):
+                    last_selected_objects[i].select_set(True)
+                last_selected_objects = context.selected_objects
+        assert len(result_objects) == target_count
+        return result_objects
