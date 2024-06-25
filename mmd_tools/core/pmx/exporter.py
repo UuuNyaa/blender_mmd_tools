@@ -377,6 +377,7 @@ class __PmxExporter:
                 pmx_bone.location = __to_pmx_location(p_bone.head)
                 pmx_bone.parent = bone.parent
                 # Determine bone visibility: visible if not hidden and either has no collections or belongs to at least one visible collection
+                # This logic is the same as Blender's
                 pmx_bone.visible = (
                     not bone.hide
                     and (not bone.collections or any(collection.is_visible for collection in bone.collections))
