@@ -13,11 +13,19 @@ class InvalidFileError(Exception):
 
 ## vmd仕様の文字列をstringに変換
 def _toShiftJisString(byteString):
-    return byteString.split(b"\x00")[0].decode("shift_jis", errors="replace")
+    try:
+        name = byteString.split(b"\x00")[0].decode("shift_jis")
+    except UnicodeDecodeError:
+        name = byteString.split(b"\x00")[0].decode("utf-8")
+    return name
 
 
 def _toShiftJisBytes(string):
-    return string.encode("shift_jis", errors="replace")
+    try:
+        name = string.encode("shift_jis")
+    except UnicodeEncodeError:
+        name = string.encode("utf-8")
+    return name
 
 
 class Header:
@@ -237,7 +245,9 @@ class _AnimationBase(collections.defaultdict):
         count = sum([len(i) for i in self.values()])
         fin.write(struct.pack("<L", count))
         for name, frameKeys in self.items():
-            name_data = struct.pack("<15s", _toShiftJisBytes(name))
+            name_data = struct.pack("<15s", b_name := _toShiftJisBytes(name))
+            if len(b_name) > 15:
+                logging.warning("'%s' is too long, the motions of this bone will be invalid", name)
             for frameKey in frameKeys:
                 fin.write(name_data)
                 frameKey.save(fin)
