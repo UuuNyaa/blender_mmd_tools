@@ -24,6 +24,7 @@ def _toShiftJisBytes(string):
     try:
         name = string.encode("shift_jis")
     except UnicodeEncodeError:
+        logging.info("Encode bone name '%s' to utf-8", string)
         name = string.encode("utf-8")
     return name
 
