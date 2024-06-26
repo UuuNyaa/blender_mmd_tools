@@ -35,7 +35,7 @@ class VPDImporter:
             for bone, matrix_basis in pose_orig.items():
                 bone.matrix_basis = matrix_basis
 
-    def __assignToArmatureSimple(self, armObj: bpy.types.Object, reset_transform=True):
+    def __assignToArmatureSimple(self, armObj: bpy.types.Object, reset_transform=False):
         logging.info('  - assigning to armature "%s"', armObj.name)
 
         pose_bones = armObj.pose.bones
@@ -54,22 +54,41 @@ class VPDImporter:
             assert bone not in pose_data
             pose_data[bone] = Matrix.Translation(loc) @ rot.to_matrix().to_4x4()
 
+        # Check if animation data exists
+        if armObj.animation_data is None:
+            armObj.animation_data_create()
+
+        # Check if an action exists
+        if armObj.animation_data.action is None:
+            action = bpy.data.actions.new(name="PoseLib")
+            armObj.animation_data.action = action
+        else:
+            action = armObj.animation_data.action
+
+        # Get the current frame
+        current_frame = bpy.context.scene.frame_current
+
+        # Update and keyframe only the bones affected by the current VPD file
         for bone in armObj.pose.bones:
             vpd_pose = pose_data.get(bone, None)
-            bone.bone.select = bool(vpd_pose)
             if vpd_pose:
                 bone.matrix_basis = vpd_pose
+                bone.keyframe_insert(data_path="location", frame=current_frame)
+                bone.keyframe_insert(data_path="rotation_quaternion", frame=current_frame)
             elif reset_transform:
                 bone.matrix_basis.identity()
+                bone.keyframe_insert(data_path="location", frame=current_frame)
+                bone.keyframe_insert(data_path="rotation_quaternion", frame=current_frame)
 
-        # FIXME: armObj.pose_library is None when the armature is not in pose mode
-        if armObj.pose_library is None:
-            armObj.pose_library = bpy.data.actions.new(name="PoseLib")
+        # Add or update a pose marker
+        if self.__pose_name not in action.pose_markers:
+            marker = action.pose_markers.new(self.__pose_name)
+        else:
+            marker = action.pose_markers[self.__pose_name]
+        marker.frame = current_frame
 
-        frames = [m.frame for m in armObj.pose_library.pose_markers]
-        frame_max = max(frames) if len(frames) else 0
-        # FIXME: poselib.pose_add is deprecated, use animation_data instead
-        bpy.ops.poselib.pose_add(frame=frame_max + 1, name=self.__pose_name)
+        # Ensure the timeline is updated
+        bpy.context.view_layer.update()
 
     def __assignToMesh(self, meshObj):
         if meshObj.data.shape_keys is None:
