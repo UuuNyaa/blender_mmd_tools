@@ -20,7 +20,8 @@ class VPDImporter:
         self.__scale = scale
         self.__bone_mapper = bone_mapper
         if use_pose_mode:
-            self.__bone_util_cls = importer.BoneConverterPoseMode
+            self.__bone_util_cls = importer.BoneConverter
+            #self.__bone_util_cls = importer.BoneConverterPoseMode
             self.__assignToArmature = self.__assignToArmaturePoseMode
         else:
             self.__bone_util_cls = importer.BoneConverter
@@ -28,12 +29,13 @@ class VPDImporter:
         logging.info("Loaded %s", self.__vpd_file)
 
     def __assignToArmaturePoseMode(self, armObj):
-        pose_orig = {b: b.matrix_basis.copy() for b in armObj.pose.bones}
-        try:
-            self.__assignToArmatureSimple(armObj, reset_transform=False)
-        finally:
-            for bone, matrix_basis in pose_orig.items():
-                bone.matrix_basis = matrix_basis
+        self.__assignToArmatureSimple(armObj, reset_transform=False)
+        #pose_orig = {b: b.matrix_basis.copy() for b in armObj.pose.bones}
+        #try:
+        #    self.__assignToArmatureSimple(armObj, reset_transform=False)
+        #finally:
+        #    for bone, matrix_basis in pose_orig.items():
+        #        bone.matrix_basis = matrix_basis
 
     def __assignToArmatureSimple(self, armObj: bpy.types.Object, reset_transform=True):
         logging.info('  - assigning to armature "%s"', armObj.name)
