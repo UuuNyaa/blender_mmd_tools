@@ -35,7 +35,7 @@ class VPDImporter:
             for bone, matrix_basis in pose_orig.items():
                 bone.matrix_basis = matrix_basis
 
-    def __assignToArmatureSimple(self, armObj: bpy.types.Object, reset_transform=False):
+    def __assignToArmatureSimple(self, armObj: bpy.types.Object, reset_transform=True):
         logging.info('  - assigning to armature "%s"', armObj.name)
 
         pose_bones = armObj.pose.bones
